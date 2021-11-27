@@ -25,9 +25,9 @@
 /* Define memory regions. */
 MEMORY
 {
-  rom (rx) : ORIGIN = 0x08000000, LENGTH = 1024K
-  ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
-  ccm (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
+  rom (rx) : ORIGIN = 0x08000000, LENGTH = 256K
+  ram (rwx) : ORIGIN = 0x20000000, LENGTH = 40K
+/*ccm (rwx) : ORIGIN = 0x10000000, LENGTH = 64K*/
 }
 
 /* Enforce emmition of the vector table. */
