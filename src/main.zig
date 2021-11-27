@@ -34,10 +34,10 @@ pub fn main() void {
     var j: u3 = 0;
     var k: u3 = 0;
 
-    var rng = std.rand.DefaultPrng.init(42);
+    var rng = std.rand.DefaultPrng.init(42).random;
     while (true) {
         while (true) {
-            if (rng.random.boolean()) {
+            if (rng.boolean()) {
                 j = if (j == 7) 0 else j + 1;
             } else {
                 k = if (k == 0) 7 else k - 1;
@@ -61,7 +61,7 @@ pub fn main() void {
 
         // Sleep for some time
         var i: u32 = 0;
-        const delay = 10 + rng.random.uintLessThan(u32, 120_000);
+        const delay = 10 + rng.uintLessThan(u32, 120_000);
         while (i < delay) {
             asm volatile ("nop");
             i += 1;
