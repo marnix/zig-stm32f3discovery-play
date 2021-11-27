@@ -1,3 +1,4 @@
+const std = @import("std");
 const regs = @import("registers.zig");
 
 pub fn main() void {
@@ -7,43 +8,61 @@ pub fn main() void {
     regs.RCC.AHBENR.modify(.{ .IOPEEN = 1 });
 
     // Set all 8 LEDs to general purpose output
-    regs.GPIOE.MODER.modify(.{ .MODER8 = 0b01 }); // top left, blue, LED 4
-    regs.GPIOE.MODER.modify(.{ .MODER9 = 0b01 }); // top, red, LED 3
-    regs.GPIOE.MODER.modify(.{ .MODER10 = 0b01 }); // top right, orange, LED 5
-    regs.GPIOE.MODER.modify(.{ .MODER11 = 0b01 }); // right, green, LED 7
-    regs.GPIOE.MODER.modify(.{ .MODER12 = 0b01 }); // bottom right, blue, LED 9
-    regs.GPIOE.MODER.modify(.{ .MODER13 = 0b01 }); // bottom, red, LED 10
-    regs.GPIOE.MODER.modify(.{ .MODER14 = 0b01 }); // bottom left, orange, LED 8
-    regs.GPIOE.MODER.modify(.{ .MODER15 = 0b01 }); // left, green, LED 6
+    regs.GPIOE.MODER.modify(.{
+        .MODER8 = 0b01, // top left, blue, LED 4
+        .MODER9 = 0b01, // top, red, LED 3
+        .MODER10 = 0b01, // top right, orange, LED 5
+        .MODER11 = 0b01, // right, green, LED 7
+        .MODER12 = 0b01, // bottom right, blue, LED 9
+        .MODER13 = 0b01, // bottom, red, LED 10
+        .MODER14 = 0b01, // bottom left, orange, LED 8
+        .MODER15 = 0b01, // left, green, LED 6
+    });
 
     // Set initial state: only top-left blue LED 4 = pin 8
-    regs.GPIOE.BSRR.modify(.{ .BS8 = 1 });
-    regs.GPIOE.BSRR.modify(.{ .BS9 = 0 });
-    regs.GPIOE.BSRR.modify(.{ .BS10 = 0 });
-    regs.GPIOE.BSRR.modify(.{ .BS11 = 0 });
-    regs.GPIOE.BSRR.modify(.{ .BS12 = 0 });
-    regs.GPIOE.BSRR.modify(.{ .BS13 = 0 });
-    regs.GPIOE.BSRR.modify(.{ .BS14 = 0 });
-    regs.GPIOE.BSRR.modify(.{ .BS15 = 0 });
+    regs.GPIOE.BSRR.modify(.{
+        .BS8 = 0,
+        .BS9 = 0,
+        .BS10 = 0,
+        .BS11 = 0,
+        .BS12 = 0,
+        .BS13 = 0,
+        .BS14 = 0,
+        .BS15 = 0,
+    });
 
+    var j: u3 = 0;
+    var k: u3 = 0;
+
+    var rng = std.rand.DefaultPrng.init(42);
     while (true) {
-        // Read the LEDs state
-        var leds_state = regs.GPIOE.ODR.read();
-        // Set each LED output to its neighbor's state
+        while (true) {
+            if (rng.random.boolean()) {
+                j = if (j == 7) 0 else j + 1;
+            } else {
+                k = if (k == 0) 7 else k - 1;
+            }
+            if (j != k) break;
+        }
+        var leds: [8]u1 = .{ 0, 0, 0, 0, 0, 0, 0, 0 };
+        leds[j] = 1;
+        leds[k] = 1;
+        // update the leds
         regs.GPIOE.ODR.modify(.{
-            .ODR8 = leds_state.ODR15,
-            .ODR9 = leds_state.ODR8,
-            .ODR10 = leds_state.ODR9,
-            .ODR11 = leds_state.ODR10,
-            .ODR12 = leds_state.ODR11,
-            .ODR13 = leds_state.ODR12,
-            .ODR14 = leds_state.ODR13,
-            .ODR15 = leds_state.ODR14,
+            .ODR8 = leds[0],
+            .ODR9 = leds[1],
+            .ODR10 = leds[2],
+            .ODR11 = leds[3],
+            .ODR12 = leds[4],
+            .ODR13 = leds[5],
+            .ODR14 = leds[6],
+            .ODR15 = leds[7],
         });
 
         // Sleep for some time
         var i: u32 = 0;
-        while (i < 50000) {
+        const delay = 10 + rng.random.uintLessThan(u32, 120_000);
+        while (i < delay) {
             asm volatile ("nop");
             i += 1;
         }
