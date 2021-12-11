@@ -1,3 +1,7 @@
+[![Build with Zig 0.8.1](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%200.8.x/badge.svg?branch=zig-0.8.x)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-0.8.x)
+
+_This branch assumes you use Zig 0.8.1._
+
 # Playing around with pure-Zig STM32F3DISCOVERY
 
 Make LEDs blink, and hopefully more, on an STM32F3DISCOVERY board using only Zig (and a linker script).
@@ -30,8 +34,6 @@ zig build flash
 After flashing the board you should see two blinking lights running around in opposite directions.
 
 # Ideas that I would like to explore
-
-- Build using GitHub actions.
 
 - Switch to an eventloop-like `async` based implementation,
   where there is for example
