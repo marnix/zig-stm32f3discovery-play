@@ -33,6 +33,20 @@ zig build flash
 
 After flashing the board you should see two blinking lights running around in opposite directions.
 
+## Notes
+
+File `src/registers.zig` was generated using [rbino/svd4zig](https://github.com/rbino/svd4zig),
+see the Git submodule, using
+```bash
+./svd2zig STM32F303.svd > src/registers.zig`
+```
+
+File STM32F303.svd is from STMicroelectronics 'STM32F3 System View Description',
+file STM32F3_svd_V1.2/STM32F303.svd from zip-file en.stm32f3_svd.zip
+(current link:
+https://www.st.com/content/ccc/resource/technical/ecad_models_and_symbols/svd/group0/3a/19/5a/05/37/a3/49/72/stm32f3_svd.zip/files/stm32f3_svd.zip/jcr:content/translations/en.stm32f3_svd.zip
+).
+
 # Ideas that I would like to explore
 
 - Switch to an eventloop-like `async` based implementation,
