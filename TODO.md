@@ -15,6 +15,9 @@ Ideas:
    * A central data structure that stores, for each led,
      how many processes want it to be switched on.
 
+- How to use std.debug or std.log or whatever
+  to send information back to the host (Linux, Windows, ...)?
+
 - How to use hardware timers and PWM (pulse width modulation)
   to set the leds '40% on', for example?
 
@@ -24,6 +27,8 @@ Ideas:
 - (How) can std's event loop + `pub cons io_mode = .evented` be used?
 
 - How can [microzig](https://github.com/ZigEmbeddedGroup/microzig) be used?
+
+- Can I do my own panic handler, letting e.g. invert all leds at a regular interval?
 
 - Try to do some more creative blinking.
 
