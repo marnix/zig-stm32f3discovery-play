@@ -1,13 +1,13 @@
-# Zig STM32 Blink
+# Playing around with pure-Zig STM32F3DISCOVERY
 
-Make LEDs blink on an STM32F4 Discovery board using only Zig (and a linker script).
+Make LEDs blink, and hopefully more, on an STM32F3DISCOVERY board using only Zig (and a linker script).
 
-See [my blogpost](https://rbino.com/posts/zig-stm32-blink/) for a more thorough explanation of
+The starting point was [rbino](https://github.com/rbino)'s
+[zig-stm32-blink](https://github.com/rbino/zig-stm32-blink) written for the STM32F4DISCOVERY board.
+See [rbino's blogpost](https://rbino.com/posts/zig-stm32-blink/) for a more thorough explanation of
 what's going on.
 
 ## Build
-
-The code was tested with Zig `0.7.1` and with Zig `0.8.0-dev.1509+b54514d9d`.
 
 To build the ELF file just run:
 
@@ -27,46 +27,45 @@ The command to flash the board is:
 zig build flash
 ```
 
-After flashing the board you should see the 4 LEDs blinking in an alternating pattern.
+After flashing the board you should see two blinking lights running around in opposite directions.
 
-## Debugging
+# Ideas that I would like to explore
 
-It's possible to use [`openocd`](http://openocd.org/) and `gdb-multiarch` to debug the firmware
-directly on the board.
+- Build using GitHub actions.
 
-In a terminal run:
-```
-openocd -f board/stm32f4discovery.cfg
-```
+- Switch to an eventloop-like `async` based implementation,
+  where there is for example
+   * One 'process' for each led, or pattern of leds, going around the circle;
+   * That process 'yields' and asks to be woken after a specific time;
+   * A central data structure that stores, for each led,
+     how many processes want it to be switched on.
 
-Then from another terminal navigate to the directory containing the ELF output (i.e.
-`zig-cache/bin`) and run:
+- How to use std.debug or std.log or whatever
+  to send information back to the host (Linux, Windows, ...)?
 
-```
-gdb-multiarch zig-stm32-blink.elf -ex "target remote :3333"
-```
+- How to use hardware timers and PWM (pulse width modulation)
+  to set the leds '40% on', for example?
 
-You can also manually flash the firmware inside `gdb` with:
+- How to let the STM32F3DISCOVERY board run at a faster speed,
+  enabling the code in `systemInit()` again?
 
-```
-load
-```
+- (How) can std's event loop + `pub cons io_mode = .evented` be used?
 
-## Emulation using `qemu`
+- How can [microzig](https://github.com/ZigEmbeddedGroup/microzig) be used?
 
-If you don't have an STM32F4 Discovery board or you just want to test the code locally, you can use
-[xPack QEMU Arm](https://xpack.github.io/qemu-arm/install/#manual-install). 
+- Can I do my own panic handler, letting e.g. invert all leds at a regular interval?
 
-*Note*: you have to comment out [this
-line](https://github.com/rbino/zig-stm32-blink/blob/master/src/main.zig#L44) to make the code work
-in QEMU since it doesn't support the FPU coprocessor yet.
+- Try to do some more creative blinking.
 
-After that, you can emulate the board with:
+- Generate `registers.zig` using `./svd2zig STM32F303.svd > src/registers.zig`
+  using the svd4zig tool from the Git submodule,
+  as part of `zig build`.
 
-```
-qemu-system-gnuarmeclipse -machine STM32F4-Discovery -mcu STM32F407VG \
-  -kernel zig-cache/bin/zig-stm32-blink.elf -gdb tcp::3333
-```
+- Generate linker.ld based on https://github.com/libopencm3/libopencm3/tree/master/ld.
+  (Perhaps as part of `zig build`? make libopencm3 a submodule probably.)
 
-You should see the blinking LEDs on the board image, and you can connect a `gdb` instance to it (see
-the previous section).
+- What is the difference between the following registers on a GPIO port?
+   * BSRR "GPIO port bit set/reset"
+   * ODR "GPIO port output data register"
+
+- Try out the other hardware on the STM32F3DISCOVERY board.
