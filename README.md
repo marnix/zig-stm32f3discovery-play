@@ -56,6 +56,10 @@ https://www.st.com/content/ccc/resource/technical/ecad_models_and_symbols/svd/gr
    * A central data structure that stores, for each led,
      how many processes want it to be switched on.
 
+- Explore how to have useful `test`s.
+  This presumably requires some sort of HAL (hardware abstraction layer),
+  which is what [microzig](https://github.com/ZigEmbeddedGroup/microzig) presumably provides.
+
 - How to use std.debug or std.log or whatever
   to send information back to the host (Linux, Windows, ...)?
 
