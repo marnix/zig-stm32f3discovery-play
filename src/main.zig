@@ -34,7 +34,7 @@ pub fn main() void {
     var j: u3 = 0;
     var k: u3 = 0;
 
-    var rng = std.rand.DefaultPrng.init(42).random;
+    var rng = std.rand.DefaultPrng.init(42).random();
     while (true) {
         while (true) {
             if (rng.boolean()) {
