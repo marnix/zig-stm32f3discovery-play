@@ -6,6 +6,18 @@ pub const TIM6Timer = struct {
         // Enable TIM6.
         regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
 
+        // Below we assume TIM6 is running on an 8 MHz clock,
+        // which it is by default after system reset:
+        // HSI = 8 MHz is the SYSCLK after reset
+        //  (but we set it in systemInit() regardless),
+        // default AHB prescaler = /1 (= values 0..7):
+        regs.RCC.CFGR.modify(.{ .HPRE = 0 });
+        // so also HCLK = 8 MHz,
+        // default APB1 prescaler = /2:
+        regs.RCC.CFGR.modify(.{ .PPRE1 = 4 });
+        // which causes an implicit factor *2,
+        // so the result is 8 MHz.
+
         regs.TIM6.CR1.modify(.{
             // Disable counting, toggle it on when we need to when in OPM.
             .CEN = 0,
@@ -17,6 +29,8 @@ pub const TIM6Timer = struct {
         regs.TIM6.PSC.modify(.{ .PSC = 7999 });
     }
     pub fn delayMs(_: @This(), n: u16) void {
+        if (n == 0) return; // to avoid counting to 2**16
+
         // Set our value for TIM6 to count to.
         regs.TIM6.ARR.modify(.{ .ARR = n });
 
@@ -28,6 +42,41 @@ pub const TIM6Timer = struct {
 
         // Clear the status register.
         regs.TIM6.SR.modify(.{ .UIF = 0 });
+    }
+};
+
+const Leds = struct {
+    leds: [8]usize = .{ 0, 0, 0, 0, 0, 0, 0, 0 },
+
+    pub fn add(self: *@This(), nr: u3) void {
+        self.leds[nr] += 1;
+        switch (nr) {
+            0 => regs.GPIOE.BSRR.write(.{ .BS8 = 1 }),
+            1 => regs.GPIOE.BSRR.write(.{ .BS9 = 1 }),
+            2 => regs.GPIOE.BSRR.write(.{ .BS10 = 1 }),
+            3 => regs.GPIOE.BSRR.write(.{ .BS11 = 1 }),
+            4 => regs.GPIOE.BSRR.write(.{ .BS12 = 1 }),
+            5 => regs.GPIOE.BSRR.write(.{ .BS13 = 1 }),
+            6 => regs.GPIOE.BSRR.write(.{ .BS14 = 1 }),
+            7 => regs.GPIOE.BSRR.write(.{ .BS15 = 1 }),
+        }
+    }
+    pub fn remove(self: *@This(), nr: u3) void {
+        self.leds[nr] -= 1;
+        switch (nr) {
+            0 => regs.GPIOE.BRR.write(.{ .BR8 = 1 }),
+            1 => regs.GPIOE.BRR.write(.{ .BR9 = 1 }),
+            2 => regs.GPIOE.BRR.write(.{ .BR10 = 1 }),
+            3 => regs.GPIOE.BRR.write(.{ .BR11 = 1 }),
+            4 => regs.GPIOE.BRR.write(.{ .BR12 = 1 }),
+            5 => regs.GPIOE.BRR.write(.{ .BR13 = 1 }),
+            6 => regs.GPIOE.BRR.write(.{ .BR14 = 1 }),
+            7 => regs.GPIOE.BRR.write(.{ .BR15 = 1 }),
+        }
+    }
+
+    pub fn has(self: *@This(), nr: u3) bool {
+        return self.leds[nr] > 0;
     }
 };
 
@@ -52,36 +101,33 @@ pub fn main() void {
         .MODER15 = 0b01, // left, green, LED 6
     });
 
+    var leds = Leds{};
+
     var j: u3 = 0;
     var k: u3 = 0;
+    leds.add(j);
+    leds.add(k);
 
     var rng = std.rand.DefaultPrng.init(42).random();
     while (true) {
-        while (true) {
-            if (rng.boolean()) {
+        if (rng.boolean()) {
+            leds.remove(j);
+            while (true) {
                 j = if (j == 7) 0 else j + 1;
-            } else {
-                k = if (k == 0) 7 else k - 1;
+                if (!leds.has(j)) break;
             }
-            if (j != k) break;
+            leds.add(j);
+        } else {
+            leds.remove(k);
+            while (true) {
+                k = if (k == 0) 7 else k - 1;
+                if (!leds.has(k)) break;
+            }
+            leds.add(k);
         }
-        var leds: [8]u1 = .{ 0, 0, 0, 0, 0, 0, 0, 0 };
-        leds[j] = 1;
-        leds[k] = 1;
-        // update the leds
-        regs.GPIOE.ODR.modify(.{
-            .ODR8 = leds[0],
-            .ODR9 = leds[1],
-            .ODR10 = leds[2],
-            .ODR11 = leds[3],
-            .ODR12 = leds[4],
-            .ODR13 = leds[5],
-            .ODR14 = leds[6],
-            .ODR15 = leds[7],
-        });
 
         // Sleep for some time
-        timer.delayMs(1 + rng.uintLessThan(u16, 400));
+        timer.delayMs(rng.uintLessThan(u16, 400));
     }
 }
 
@@ -96,15 +142,15 @@ fn systemInit() void {
     // WARN: currently not supported in qemu, comment if testing it there
     regs.FPU_CPACR.CPACR.modify(.{ .CP = 0b11 });
 
+    // Enable HSI
+    regs.RCC.CR.modify(.{ .HSION = 1 });
+
+    // Wait for HSI ready
+    while (regs.RCC.CR.read().HSIRDY != 1) {}
+
+    // Select HSI as clock source
+    regs.RCC.CFGR.modify(.{ .SW = 0 });
     if (false) {
-        // Enable HSI
-        regs.RCC.CR.modify(.{ .HSION = 1 });
-
-        // Wait for HSI ready
-        while (regs.RCC.CR.read().HSIRDY != 1) {}
-
-        // Select HSI as clock source
-        regs.RCC.CFGR.modify(.{ .SW0 = 0, .SW1 = 0 });
 
         // Enable external high-speed oscillator (HSE)
         regs.RCC.CR.modify(.{ .HSEON = 1 });
