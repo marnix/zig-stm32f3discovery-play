@@ -6,6 +6,18 @@ pub const TIM6Timer = struct {
         // Enable TIM6.
         regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
 
+        // Below we assume TIM6 is running on an 8 MHz clock,
+        // which it is by default after system reset:
+        // HSI = 8 MHz is the SYSCLK after reset
+        //  (but we set it in systemInit() regardless),
+        // default AHB prescaler = /1 (= values 0..7):
+        regs.RCC.CFGR.modify(.{ .HPRE = 0 });
+        // so also HCLK = 8 MHz,
+        // default APB1 prescaler = /2:
+        regs.RCC.CFGR.modify(.{ .PPRE1 = 4 });
+        // which causes an implicit factor *2,
+        // so the result is 8 MHz.
+
         regs.TIM6.CR1.modify(.{
             // Disable counting, toggle it on when we need to when in OPM.
             .CEN = 0,
@@ -96,15 +108,15 @@ fn systemInit() void {
     // WARN: currently not supported in qemu, comment if testing it there
     regs.FPU_CPACR.CPACR.modify(.{ .CP = 0b11 });
 
+    // Enable HSI
+    regs.RCC.CR.modify(.{ .HSION = 1 });
+
+    // Wait for HSI ready
+    while (regs.RCC.CR.read().HSIRDY != 1) {}
+
+    // Select HSI as clock source
+    regs.RCC.CFGR.modify(.{ .SW = 0 });
     if (false) {
-        // Enable HSI
-        regs.RCC.CR.modify(.{ .HSION = 1 });
-
-        // Wait for HSI ready
-        while (regs.RCC.CR.read().HSIRDY != 1) {}
-
-        // Select HSI as clock source
-        regs.RCC.CFGR.modify(.{ .SW0 = 0, .SW1 = 0 });
 
         // Enable external high-speed oscillator (HSE)
         regs.RCC.CR.modify(.{ .HSEON = 1 });
