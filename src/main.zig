@@ -29,6 +29,8 @@ pub const TIM6Timer = struct {
         regs.TIM6.PSC.modify(.{ .PSC = 7999 });
     }
     pub fn delayMs(_: @This(), n: u16) void {
+        if (n == 0) return; // to avoid counting to 2**16
+
         // Set our value for TIM6 to count to.
         regs.TIM6.ARR.modify(.{ .ARR = n });
 
@@ -93,7 +95,7 @@ pub fn main() void {
         });
 
         // Sleep for some time
-        timer.delayMs(1 + rng.uintLessThan(u16, 400));
+        timer.delayMs(rng.uintLessThan(u16, 400));
     }
 }
 
