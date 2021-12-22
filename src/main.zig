@@ -1,8 +1,41 @@
 const std = @import("std");
 const regs = @import("registers.zig");
 
+pub const TIM6Timer = struct {
+    pub fn init(_: @This()) void {
+        // Enable TIM6.
+        regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
+
+        regs.TIM6.CR1.modify(.{
+            // Disable counting, toggle it on when we need to when in OPM.
+            .CEN = 0,
+            // Configure to one-pulse mode
+            .OPM = 1,
+        });
+
+        // Set prescaler to roughly 1ms per count.
+        regs.TIM6.PSC.modify(.{ .PSC = 7999 });
+    }
+    pub fn delayMs(_: @This(), n: u16) void {
+        // Set our value for TIM6 to count to.
+        regs.TIM6.ARR.modify(.{ .ARR = n });
+
+        // Start the clock using CEN.
+        regs.TIM6.CR1.modify(.{ .CEN = 1 });
+
+        // Wait for TIM6 to set the status register.
+        while (regs.TIM6.SR.read().UIF == 0) {}
+
+        // Clear the status register.
+        regs.TIM6.SR.modify(.{ .UIF = 0 });
+    }
+};
+
 pub fn main() void {
     systemInit();
+
+    const timer = TIM6Timer{};
+    timer.init();
 
     // Enable GPIOE port
     regs.RCC.AHBENR.modify(.{ .IOPEEN = 1 });
@@ -60,12 +93,7 @@ pub fn main() void {
         });
 
         // Sleep for some time
-        var i: u32 = 0;
-        const delay = 10 + rng.uintLessThan(u32, 120_000);
-        while (i < delay) {
-            asm volatile ("nop");
-            i += 1;
-        }
+        timer.delayMs(1 + rng.uintLessThan(u16, 400));
     }
 }
 
