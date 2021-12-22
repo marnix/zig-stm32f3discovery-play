@@ -38,7 +38,7 @@ After flashing the board you should see two blinking lights running around in op
 File `src/registers.zig` was generated using [rbino/svd4zig](https://github.com/rbino/svd4zig),
 see the Git submodule, using
 ```bash
-./svd2zig STM32F303.svd > src/registers.zig`
+./svd2zig STM32F303.svd > src/registers.zig
 ```
 
 File STM32F303.svd is from STMicroelectronics 'STM32F3 System View Description',
@@ -83,9 +83,5 @@ https://www.st.com/content/ccc/resource/technical/ecad_models_and_symbols/svd/gr
 
 - Generate linker.ld based on https://github.com/libopencm3/libopencm3/tree/master/ld.
   (Perhaps as part of `zig build`? make libopencm3 a submodule probably.)
-
-- What is the difference between the following registers on a GPIO port?
-   * BSRR "GPIO port bit set/reset"
-   * ODR "GPIO port output data register"
 
 - Try out the other hardware on the STM32F3DISCOVERY board.
