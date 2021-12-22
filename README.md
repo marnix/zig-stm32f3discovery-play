@@ -38,7 +38,7 @@ After flashing the board you should see two blinking lights running around in op
 File `src/registers.zig` was generated using [rbino/svd4zig](https://github.com/rbino/svd4zig),
 see the Git submodule, using
 ```bash
-./svd2zig STM32F303.svd > src/registers.zig`
+./svd2zig STM32F303.svd > src/registers.zig
 ```
 
 File STM32F303.svd is from STMicroelectronics 'STM32F3 System View Description',
