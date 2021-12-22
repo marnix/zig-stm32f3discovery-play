@@ -52,18 +52,6 @@ pub fn main() void {
         .MODER15 = 0b01, // left, green, LED 6
     });
 
-    // Set initial state: only top-left blue LED 4 = pin 8
-    regs.GPIOE.BSRR.modify(.{
-        .BS8 = 0,
-        .BS9 = 0,
-        .BS10 = 0,
-        .BS11 = 0,
-        .BS12 = 0,
-        .BS13 = 0,
-        .BS14 = 0,
-        .BS15 = 0,
-    });
-
     var j: u3 = 0;
     var k: u3 = 0;
 

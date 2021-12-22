@@ -84,8 +84,4 @@ https://www.st.com/content/ccc/resource/technical/ecad_models_and_symbols/svd/gr
 - Generate linker.ld based on https://github.com/libopencm3/libopencm3/tree/master/ld.
   (Perhaps as part of `zig build`? make libopencm3 a submodule probably.)
 
-- What is the difference between the following registers on a GPIO port?
-   * BSRR "GPIO port bit set/reset"
-   * ODR "GPIO port output data register"
-
 - Try out the other hardware on the STM32F3DISCOVERY board.
