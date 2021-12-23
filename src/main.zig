@@ -50,7 +50,22 @@ const Leds = struct {
 
     pub fn init() @This() {
         var self = Leds{ ._leds = undefined };
+        self.reset();
         return self;
+    }
+
+    pub fn reset(self: *@This()) void {
+        self._leds = .{ 0, 0, 0, 0, 0, 0, 0, 0 };
+        regs.GPIOE.BRR.write(.{
+            .BR8 = 1,
+            .BR9 = 1,
+            .BR10 = 1,
+            .BR11 = 1,
+            .BR12 = 1,
+            .BR13 = 1,
+            .BR14 = 1,
+            .BR15 = 1,
+        });
     }
 
     pub fn add(self: *@This(), nr: u3) void {
