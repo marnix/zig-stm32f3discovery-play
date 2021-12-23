@@ -46,10 +46,15 @@ pub const TIM6Timer = struct {
 };
 
 const Leds = struct {
-    leds: [8]usize = .{ 0, 0, 0, 0, 0, 0, 0, 0 },
+    _leds: [8]usize,
+
+    pub fn init() @This() {
+        var self = Leds{ ._leds = undefined };
+        return self;
+    }
 
     pub fn add(self: *@This(), nr: u3) void {
-        self.leds[nr] += 1;
+        self._leds[nr] += 1;
         switch (nr) {
             0 => regs.GPIOE.BSRR.write(.{ .BS8 = 1 }),
             1 => regs.GPIOE.BSRR.write(.{ .BS9 = 1 }),
@@ -62,21 +67,23 @@ const Leds = struct {
         }
     }
     pub fn remove(self: *@This(), nr: u3) void {
-        self.leds[nr] -= 1;
-        switch (nr) {
-            0 => regs.GPIOE.BRR.write(.{ .BR8 = 1 }),
-            1 => regs.GPIOE.BRR.write(.{ .BR9 = 1 }),
-            2 => regs.GPIOE.BRR.write(.{ .BR10 = 1 }),
-            3 => regs.GPIOE.BRR.write(.{ .BR11 = 1 }),
-            4 => regs.GPIOE.BRR.write(.{ .BR12 = 1 }),
-            5 => regs.GPIOE.BRR.write(.{ .BR13 = 1 }),
-            6 => regs.GPIOE.BRR.write(.{ .BR14 = 1 }),
-            7 => regs.GPIOE.BRR.write(.{ .BR15 = 1 }),
+        self._leds[nr] -= 1;
+        if (self._leds[nr] == 0) {
+            switch (nr) {
+                0 => regs.GPIOE.BRR.write(.{ .BR8 = 1 }),
+                1 => regs.GPIOE.BRR.write(.{ .BR9 = 1 }),
+                2 => regs.GPIOE.BRR.write(.{ .BR10 = 1 }),
+                3 => regs.GPIOE.BRR.write(.{ .BR11 = 1 }),
+                4 => regs.GPIOE.BRR.write(.{ .BR12 = 1 }),
+                5 => regs.GPIOE.BRR.write(.{ .BR13 = 1 }),
+                6 => regs.GPIOE.BRR.write(.{ .BR14 = 1 }),
+                7 => regs.GPIOE.BRR.write(.{ .BR15 = 1 }),
+            }
         }
     }
 
     pub fn has(self: *@This(), nr: u3) bool {
-        return self.leds[nr] > 0;
+        return self._leds[nr] > 0;
     }
 };
 
@@ -101,7 +108,7 @@ pub fn main() void {
         .MODER15 = 0b01, // left, green, LED 6
     });
 
-    var leds = Leds{};
+    var leds = Leds.init();
 
     var j: u3 = 0;
     var k: u3 = 0;
