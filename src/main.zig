@@ -2,7 +2,7 @@ const std = @import("std");
 const regs = @import("registers.zig");
 
 pub const TIM6Timer = struct {
-    pub fn init(_: @This()) void {
+    pub fn init() @This() {
         // Enable TIM6.
         regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
 
@@ -27,7 +27,10 @@ pub const TIM6Timer = struct {
 
         // Set prescaler to roughly 1ms per count.
         regs.TIM6.PSC.modify(.{ .PSC = 7999 });
+
+        return @This(){};
     }
+
     pub fn delayMs(_: @This(), n: u16) void {
         if (n == 0) return; // to avoid counting to 2**16
 
@@ -46,10 +49,46 @@ pub const TIM6Timer = struct {
 };
 
 const Leds = struct {
-    leds: [8]usize = .{ 0, 0, 0, 0, 0, 0, 0, 0 },
+    /// for each led, the 'number of times' it is switched on
+    _leds: [8]usize,
+
+    pub fn init() @This() {
+        // Enable GPIOE port
+        regs.RCC.AHBENR.modify(.{ .IOPEEN = 1 });
+
+        // Set all 8 LEDs to general purpose output
+        regs.GPIOE.MODER.modify(.{
+            .MODER8 = 0b01, // top left, blue, LED 4
+            .MODER9 = 0b01, // top, red, LED 3
+            .MODER10 = 0b01, // top right, orange, LED 5
+            .MODER11 = 0b01, // right, green, LED 7
+            .MODER12 = 0b01, // bottom right, blue, LED 9
+            .MODER13 = 0b01, // bottom, red, LED 10
+            .MODER14 = 0b01, // bottom left, orange, LED 8
+            .MODER15 = 0b01, // left, green, LED 6
+        });
+
+        var self = Leds{ ._leds = undefined };
+        self.reset();
+        return self;
+    }
+
+    pub fn reset(self: *@This()) void {
+        self._leds = .{ 0, 0, 0, 0, 0, 0, 0, 0 };
+        regs.GPIOE.BRR.write(.{
+            .BR8 = 1,
+            .BR9 = 1,
+            .BR10 = 1,
+            .BR11 = 1,
+            .BR12 = 1,
+            .BR13 = 1,
+            .BR14 = 1,
+            .BR15 = 1,
+        });
+    }
 
     pub fn add(self: *@This(), nr: u3) void {
-        self.leds[nr] += 1;
+        self._leds[nr] += 1;
         switch (nr) {
             0 => regs.GPIOE.BSRR.write(.{ .BS8 = 1 }),
             1 => regs.GPIOE.BSRR.write(.{ .BS9 = 1 }),
@@ -62,46 +101,57 @@ const Leds = struct {
         }
     }
     pub fn remove(self: *@This(), nr: u3) void {
-        self.leds[nr] -= 1;
-        switch (nr) {
-            0 => regs.GPIOE.BRR.write(.{ .BR8 = 1 }),
-            1 => regs.GPIOE.BRR.write(.{ .BR9 = 1 }),
-            2 => regs.GPIOE.BRR.write(.{ .BR10 = 1 }),
-            3 => regs.GPIOE.BRR.write(.{ .BR11 = 1 }),
-            4 => regs.GPIOE.BRR.write(.{ .BR12 = 1 }),
-            5 => regs.GPIOE.BRR.write(.{ .BR13 = 1 }),
-            6 => regs.GPIOE.BRR.write(.{ .BR14 = 1 }),
-            7 => regs.GPIOE.BRR.write(.{ .BR15 = 1 }),
+        self._leds[nr] -= 1;
+        if (self._leds[nr] == 0) {
+            switch (nr) {
+                0 => regs.GPIOE.BRR.write(.{ .BR8 = 1 }),
+                1 => regs.GPIOE.BRR.write(.{ .BR9 = 1 }),
+                2 => regs.GPIOE.BRR.write(.{ .BR10 = 1 }),
+                3 => regs.GPIOE.BRR.write(.{ .BR11 = 1 }),
+                4 => regs.GPIOE.BRR.write(.{ .BR12 = 1 }),
+                5 => regs.GPIOE.BRR.write(.{ .BR13 = 1 }),
+                6 => regs.GPIOE.BRR.write(.{ .BR14 = 1 }),
+                7 => regs.GPIOE.BRR.write(.{ .BR15 = 1 }),
+            }
         }
     }
 
     pub fn has(self: *@This(), nr: u3) bool {
-        return self.leds[nr] > 0;
+        return self._leds[nr] > 0;
+    }
+};
+const System = struct {
+    leds: *Leds,
+    timer: *TIM6Timer,
+    wait_time_ms: u16 = undefined,
+    fp: anyframe = undefined,
+
+    pub fn run(self: *@This()) noreturn {
+        while (true) {
+            self.timer.delayMs(self.wait_time_ms);
+            resume self.fp;
+        }
+    }
+
+    pub fn sleep(self: *@This(), ms: u16) void {
+        self.wait_time_ms = ms;
+        self.fp = @frame();
+        suspend {}
     }
 };
 
 pub fn main() void {
     systemInit();
+    const timer = TIM6Timer.init();
+    var leds = Leds.init();
+    var system = System{ .leds = &leds, .timer = timer };
 
-    const timer = TIM6Timer{};
-    timer.init();
+    _ = async two_bumping_leds(&system);
+    system.run();
+}
 
-    // Enable GPIOE port
-    regs.RCC.AHBENR.modify(.{ .IOPEEN = 1 });
-
-    // Set all 8 LEDs to general purpose output
-    regs.GPIOE.MODER.modify(.{
-        .MODER8 = 0b01, // top left, blue, LED 4
-        .MODER9 = 0b01, // top, red, LED 3
-        .MODER10 = 0b01, // top right, orange, LED 5
-        .MODER11 = 0b01, // right, green, LED 7
-        .MODER12 = 0b01, // bottom right, blue, LED 9
-        .MODER13 = 0b01, // bottom, red, LED 10
-        .MODER14 = 0b01, // bottom left, orange, LED 8
-        .MODER15 = 0b01, // left, green, LED 6
-    });
-
-    var leds = Leds{};
+fn two_bumping_leds(system: *System) void {
+    const leds = system.leds;
 
     var j: u3 = 0;
     var k: u3 = 0;
@@ -126,8 +176,7 @@ pub fn main() void {
             leds.add(k);
         }
 
-        // Sleep for some time
-        timer.delayMs(rng.uintLessThan(u16, 400));
+        system.sleep(rng.uintLessThan(u16, 400));
     }
 }
 
