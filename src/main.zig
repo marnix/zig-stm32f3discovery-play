@@ -2,7 +2,7 @@ const std = @import("std");
 const regs = @import("registers.zig");
 
 pub const TIM6Timer = struct {
-    pub fn init(_: @This()) void {
+    pub fn init() @This() {
         // Enable TIM6.
         regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
 
@@ -27,7 +27,10 @@ pub const TIM6Timer = struct {
 
         // Set prescaler to roughly 1ms per count.
         regs.TIM6.PSC.modify(.{ .PSC = 7999 });
+
+        return @This(){};
     }
+
     pub fn delayMs(_: @This(), n: u16) void {
         if (n == 0) return; // to avoid counting to 2**16
 
@@ -46,9 +49,25 @@ pub const TIM6Timer = struct {
 };
 
 const Leds = struct {
+    /// for each led, the 'number of times' it is switched on
     _leds: [8]usize,
 
     pub fn init() @This() {
+        // Enable GPIOE port
+        regs.RCC.AHBENR.modify(.{ .IOPEEN = 1 });
+
+        // Set all 8 LEDs to general purpose output
+        regs.GPIOE.MODER.modify(.{
+            .MODER8 = 0b01, // top left, blue, LED 4
+            .MODER9 = 0b01, // top, red, LED 3
+            .MODER10 = 0b01, // top right, orange, LED 5
+            .MODER11 = 0b01, // right, green, LED 7
+            .MODER12 = 0b01, // bottom right, blue, LED 9
+            .MODER13 = 0b01, // bottom, red, LED 10
+            .MODER14 = 0b01, // bottom left, orange, LED 8
+            .MODER15 = 0b01, // left, green, LED 6
+        });
+
         var self = Leds{ ._leds = undefined };
         self.reset();
         return self;
@@ -101,34 +120,6 @@ const Leds = struct {
         return self._leds[nr] > 0;
     }
 };
-
-pub fn main() void {
-    systemInit();
-
-    const timer = TIM6Timer{};
-    timer.init();
-
-    // Enable GPIOE port
-    regs.RCC.AHBENR.modify(.{ .IOPEEN = 1 });
-
-    // Set all 8 LEDs to general purpose output
-    regs.GPIOE.MODER.modify(.{
-        .MODER8 = 0b01, // top left, blue, LED 4
-        .MODER9 = 0b01, // top, red, LED 3
-        .MODER10 = 0b01, // top right, orange, LED 5
-        .MODER11 = 0b01, // right, green, LED 7
-        .MODER12 = 0b01, // bottom right, blue, LED 9
-        .MODER13 = 0b01, // bottom, red, LED 10
-        .MODER14 = 0b01, // bottom left, orange, LED 8
-        .MODER15 = 0b01, // left, green, LED 6
-    });
-
-    var leds = Leds.init();
-    var system = System{ .leds = &leds, .timer = timer };
-    _ = async two_bumping_leds(&system);
-    system.run();
-}
-
 const System = struct {
     leds: *Leds,
     timer: *TIM6Timer,
@@ -148,6 +139,16 @@ const System = struct {
         suspend {}
     }
 };
+
+pub fn main() void {
+    systemInit();
+    const timer = TIM6Timer.init();
+    var leds = Leds.init();
+    var system = System{ .leds = &leds, .timer = timer };
+
+    _ = async two_bumping_leds(&system);
+    system.run();
+}
 
 fn two_bumping_leds(system: *System) void {
     const leds = system.leds;
