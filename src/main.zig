@@ -124,6 +124,33 @@ pub fn main() void {
     });
 
     var leds = Leds.init();
+    var system = System{ .leds = &leds, .timer = timer };
+    _ = async two_bumping_leds(&system);
+    system.run();
+}
+
+const System = struct {
+    leds: *Leds,
+    timer: *TIM6Timer,
+    wait_time_ms: u16 = undefined,
+    fp: anyframe = undefined,
+
+    pub fn run(self: *@This()) noreturn {
+        while (true) {
+            self.timer.delayMs(self.wait_time_ms);
+            resume self.fp;
+        }
+    }
+
+    pub fn sleep(self: *@This(), ms: u16) void {
+        self.wait_time_ms = ms;
+        self.fp = @frame();
+        suspend {}
+    }
+};
+
+fn two_bumping_leds(system: *System) void {
+    const leds = system.leds;
 
     var j: u3 = 0;
     var k: u3 = 0;
@@ -148,8 +175,7 @@ pub fn main() void {
             leds.add(k);
         }
 
-        // Sleep for some time
-        timer.delayMs(rng.uintLessThan(u16, 400));
+        system.sleep(rng.uintLessThan(u16, 400));
     }
 }
 
