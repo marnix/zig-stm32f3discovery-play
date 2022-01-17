@@ -2,7 +2,7 @@ const Builder = @import("std").build.Builder;
 const builtin = @import("builtin");
 const std = @import("std");
 
-const microzig = @import("src/microzig/src/main.zig");
+const microzig = @import("libs/microzig/src/main.zig");
 
 pub fn build(b: *Builder) !void {
     // Standard release options allow the person running `zig build` to select

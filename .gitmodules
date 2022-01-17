@@ -1,3 +1,3 @@
-[submodule "src/microzig"]
-	path = src/microzig
+[submodule "libs/microzig"]
+	path = libs/microzig
 	url = https://github.com/marnix/microzig
