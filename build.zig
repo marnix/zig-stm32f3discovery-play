@@ -2,29 +2,21 @@ const Builder = @import("std").build.Builder;
 const builtin = @import("builtin");
 const std = @import("std");
 
-pub fn build(b: *Builder) void {
-    // Target STM32F407VG
-    const target = .{
-        .cpu_arch = .thumb,
-        .cpu_model = .{ .explicit = &std.Target.arm.cpu.cortex_m4 },
-        .os_tag = .freestanding,
-        .abi = .eabihf,
-    };
+const microzig = @import("src/microzig/src/main.zig");
 
+pub fn build(b: *Builder) !void {
     // Standard release options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const elf = b.addExecutable("zig-stm32-blink.elf", "src/startup.zig");
-    elf.setTarget(target);
+    const elf = try microzig.addEmbeddedExecutable(
+        b,
+        "zig-stm32-blink.elf",
+        "src/main.zig",
+        microzig.Backing{ .board = microzig.boards.stm32f3discovery },
+    );
     elf.setBuildMode(mode);
-
-    const vector_obj = b.addObject("vector", "src/vector.zig");
-    vector_obj.setTarget(target);
-    vector_obj.setBuildMode(mode);
-
-    elf.addObject(vector_obj);
-    elf.setLinkerScriptPath(.{ .path = "src/linker.ld" });
+    elf.install();
 
     const bin = b.addInstallRaw(elf, "zig-stm32-blink.bin", .{});
     const bin_step = b.step("bin", "Generate binary file to be flashed");

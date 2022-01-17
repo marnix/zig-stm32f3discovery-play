@@ -11,6 +11,11 @@ The starting point was [rbino](https://github.com/rbino)'s
 See [rbino's blogpost](https://rbino.com/posts/zig-stm32-blink/) for a more thorough explanation of
 what's going on.
 
+Since then, this project has been updated to build on top of
+[microzig](https://github.com/ZigEmbeddedGroup/microzig);
+currently it requires my not-yet-merged PR
+https://github.com/ZigEmbeddedGroup/microzig/pull/11.
+
 ## Build
 
 To build the ELF file just run:
@@ -33,20 +38,6 @@ zig build flash
 
 After flashing the board you should see two blinking lights running around in opposite directions.
 
-## Notes
-
-File `src/registers.zig` was generated using [rbino/svd4zig](https://github.com/rbino/svd4zig),
-see the Git submodule, using
-```bash
-./svd2zig STM32F303.svd > src/registers.zig
-```
-
-File STM32F303.svd is from STMicroelectronics 'STM32F3 System View Description',
-file STM32F3_svd_V1.2/STM32F303.svd from zip-file en.stm32f3_svd.zip
-(current link:
-https://www.st.com/content/ccc/resource/technical/ecad_models_and_symbols/svd/group0/3a/19/5a/05/37/a3/49/72/stm32f3_svd.zip/files/stm32f3_svd.zip/jcr:content/translations/en.stm32f3_svd.zip
-).
-
 # Ideas that I would like to explore
 
 - Switch to an eventloop-like `async` based implementation,
@@ -67,21 +58,14 @@ https://www.st.com/content/ccc/resource/technical/ecad_models_and_symbols/svd/gr
   to set the leds '40% on', for example?
 
 - How to let the STM32F3DISCOVERY board run at a faster speed,
-  enabling the code in `systemInit()` again?
+  enabling the code that initially was in `systemInit()` in main.zig?
 
 - (How) can std's event loop + `pub cons io_mode = .evented` be used?
 
-- How can [microzig](https://github.com/ZigEmbeddedGroup/microzig) be used?
+- How can more of [microzig](https://github.com/ZigEmbeddedGroup/microzig) be used?
 
 - Can I do my own panic handler, letting e.g. invert all leds at a regular interval?
 
 - Try to do some more creative blinking.
-
-- Generate `registers.zig` using `./svd2zig STM32F303.svd > src/registers.zig`
-  using the svd4zig tool from the Git submodule,
-  as part of `zig build`.
-
-- Generate linker.ld based on https://github.com/libopencm3/libopencm3/tree/master/ld.
-  (Perhaps as part of `zig build`? make libopencm3 a submodule probably.)
 
 - Try out the other hardware on the STM32F3DISCOVERY board.
