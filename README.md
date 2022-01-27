@@ -12,9 +12,7 @@ See [rbino's blogpost](https://rbino.com/posts/zig-stm32-blink/) for a more thor
 what's going on.
 
 Since then, this project has been updated to build on top of
-[microzig](https://github.com/ZigEmbeddedGroup/microzig);
-currently it requires my not-yet-merged PR
-https://github.com/ZigEmbeddedGroup/microzig/pull/11.
+[microzig](https://github.com/ZigEmbeddedGroup/microzig).
 
 ## Build
 
