@@ -15,6 +15,15 @@ At least the I2C and interrupt pin wiring is identical.)
 This is connected to the MCU via I2C,
 MCU ports PB6 + PB7 = I2C1\_SCL + I2C1\_SDA.
 
+(The chip supports SPI, but the board disables that
+by setting the CS\_XL and CS\_MAG pins to I2C=1 mode.)
+
+The chip has 2 separate I2C devices:
+
+- the accelerometer (XL, I2C address 0b0011001, ID 0x33);
+
+- the magnetometer (MAG, I2C address 0b0011110, ID 0x40).
+
 Separately from the I2C connection,
 MCU ports PE4 + PE5 = INT1 + INT2 generate various configurable interrupts,
 the first if data is available,
