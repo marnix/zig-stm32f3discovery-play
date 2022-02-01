@@ -31,7 +31,7 @@ Separately from the I2C connection,
 MCU pins PE4 + PE5 = INT1 + INT2 generate various configurable interrupts,
 the first if data is available,
 and both if click events occurred.
-(Unknown: Alternate function for these PE pins needed?)
+Assumption: No alternate function needed (AF0) for these PE pins.
 
 # Gyroscope
 
@@ -45,7 +45,7 @@ At least the I2C, SPI, and interrupt pin wiring is identical.)
 
 MCU pin PE3 = CS\_I2C/SPI controls whether
 the device is in I2C or SPI mode (SPI=0, I2C=1).
-(Unknown: Alternate function for this PE pin needed?)
+Assumption: No alternate function needed (AF0) for this PE pin.
 
 (And SPI mode can be kept on permanently by
 setting bit 0x20 to 1 in SPI register 0x05, it seems.)
@@ -74,4 +74,4 @@ Separately from the I2C or SPI connection,
 MCU pins PE0 + PE1 = INT1 + INT2/DRDY generate various configurable interrupts,
 the first if X/Y/Z goes outside of configurable bounds,
 the second if data is available.
-(Unknown: Alternate function for these PE pins needed?)
+Assumption: No alternate function needed (AF0) for these PE pins.
