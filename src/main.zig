@@ -1,6 +1,7 @@
 const std = @import("std");
 const microzig = @import("microzig");
 const regs = microzig.chip.registers;
+const Queue = std.queue.DEQueue;
 
 // this will instantiate microzig and pull in all dependencies
 pub const panic = microzig.panic;
@@ -19,7 +20,7 @@ pub const TIM6Timer = struct {
         // so also HCLK = 8 MHz,
         // default APB1 prescaler = /2:
         regs.RCC.CFGR.modify(.{ .PPRE1 = 4 });
-        // which causes an implicit factor *2,
+        // which causes an implicit factor *2 for Tim2/3/4/6/7
         // so the result is 8 MHz.
 
         regs.TIM6.CR1.modify(.{
@@ -93,29 +94,37 @@ const Leds = struct {
 
     pub fn add(self: *@This(), nr: u3) void {
         self._leds[nr] += 1;
-        switch (nr) {
-            0 => regs.GPIOE.BSRR.modify(.{ .BS8 = 1 }),
-            1 => regs.GPIOE.BSRR.modify(.{ .BS9 = 1 }),
-            2 => regs.GPIOE.BSRR.modify(.{ .BS10 = 1 }),
-            3 => regs.GPIOE.BSRR.modify(.{ .BS11 = 1 }),
-            4 => regs.GPIOE.BSRR.modify(.{ .BS12 = 1 }),
-            5 => regs.GPIOE.BSRR.modify(.{ .BS13 = 1 }),
-            6 => regs.GPIOE.BSRR.modify(.{ .BS14 = 1 }),
-            7 => regs.GPIOE.BSRR.modify(.{ .BS15 = 1 }),
-        }
     }
     pub fn remove(self: *@This(), nr: u3) void {
         self._leds[nr] -= 1;
-        if (self._leds[nr] == 0) {
-            switch (nr) {
-                0 => regs.GPIOE.BRR.modify(.{ .BR8 = 1 }),
-                1 => regs.GPIOE.BRR.modify(.{ .BR9 = 1 }),
-                2 => regs.GPIOE.BRR.modify(.{ .BR10 = 1 }),
-                3 => regs.GPIOE.BRR.modify(.{ .BR11 = 1 }),
-                4 => regs.GPIOE.BRR.modify(.{ .BR12 = 1 }),
-                5 => regs.GPIOE.BRR.modify(.{ .BR13 = 1 }),
-                6 => regs.GPIOE.BRR.modify(.{ .BR14 = 1 }),
-                7 => regs.GPIOE.BRR.modify(.{ .BR15 = 1 }),
+    }
+
+    pub fn update(self: *@This()) void {
+        for (self._leds) |n, nr| {
+            if (n > 0) {
+                switch (nr) {
+                    0 => regs.GPIOE.BSRR.modify(.{ .BS8 = 1 }),
+                    1 => regs.GPIOE.BSRR.modify(.{ .BS9 = 1 }),
+                    2 => regs.GPIOE.BSRR.modify(.{ .BS10 = 1 }),
+                    3 => regs.GPIOE.BSRR.modify(.{ .BS11 = 1 }),
+                    4 => regs.GPIOE.BSRR.modify(.{ .BS12 = 1 }),
+                    5 => regs.GPIOE.BSRR.modify(.{ .BS13 = 1 }),
+                    6 => regs.GPIOE.BSRR.modify(.{ .BS14 = 1 }),
+                    7 => regs.GPIOE.BSRR.modify(.{ .BS15 = 1 }),
+                    else => unreachable,
+                }
+            } else {
+                switch (nr) {
+                    0 => regs.GPIOE.BRR.modify(.{ .BR8 = 1 }),
+                    1 => regs.GPIOE.BRR.modify(.{ .BR9 = 1 }),
+                    2 => regs.GPIOE.BRR.modify(.{ .BR10 = 1 }),
+                    3 => regs.GPIOE.BRR.modify(.{ .BR11 = 1 }),
+                    4 => regs.GPIOE.BRR.modify(.{ .BR12 = 1 }),
+                    5 => regs.GPIOE.BRR.modify(.{ .BR13 = 1 }),
+                    6 => regs.GPIOE.BRR.modify(.{ .BR14 = 1 }),
+                    7 => regs.GPIOE.BRR.modify(.{ .BR15 = 1 }),
+                    else => unreachable,
+                }
             }
         }
     }
@@ -124,6 +133,7 @@ const Leds = struct {
         return self._leds[nr] > 0;
     }
 };
+
 const System = struct {
     leds: *Leds,
     timer: *TIM6Timer,
@@ -149,11 +159,115 @@ pub fn main() void {
     var leds = Leds.init();
     var system = System{ .leds = &leds, .timer = timer };
 
-    _ = async two_bumping_leds(&system);
-    system.run();
+    _ = system;
+    leds.add(0);
+    leds.update();
+
+    // 0a. set USART1 clock speed
+    // elsewhere, we've left all board reset defaults
+    // The default USART1 clock is PCLK2, which is 8 MHz after reset,
+    // because APB2 prescaler is /1 after reset:
+    regs.RCC.CFGR.modify(.{ .PPRE2 = 0 });
+    // 0b. enable the USART1 clock
+    regs.RCC.APB2ENR.modify(.{ .USART1EN = 1 });
+    // 0c. enable GPIOC clock (why needed?!?)
+    regs.RCC.AHBENR.modify(.{ .IOPCEN = 1 });
+    // 0d. set PC4+PC5 to alternate function 7, USART1_TX + USART1_RX
+    regs.GPIOC.MODER.modify(.{ .MODER4 = 0b10, .MODER5 = 0b10 });
+    regs.GPIOC.AFRL.modify(.{ .AFRL4 = 7, .AFRL5 = 7 });
+    // 2. set word length to 8 data bits (must be before setting UE=1) (probably the default?)
+    regs.USART1.CR1.modify(.{ .padding4 = 0, .M = 0 }); // padding4 = bit 28 = .M1 (.svd bug)
+    // 2b. number of stop bits = 1 (default)
+    regs.USART1.CR2.modify(.{ .STOP = 0b00 });
+    // set baud rate
+    const usartdiv: u16 = @divTrunc(microzig.board.cpu_frequency, 9600); // frequency = 8 MHz
+    comptime std.debug.assert(usartdiv == 0x0341);
+    comptime std.debug.assert(usartdiv >> 4 == 0x034);
+    comptime std.debug.assert(usartdiv & ((1 << 4) - 1) == 0x1);
+    regs.USART1.BRR.modify(.{ .DIV_Mantissa = usartdiv >> 4, .DIV_Fraction = usartdiv & ((1 << 4) - 1) });
+
+    // set regs.USART1.CR1 to @as(u32, 0), somewhere above?
+    // 1. enable USART1
+    regs.USART1.CR1.modify(.{ .UE = 1 });
+
+    regs.USART1.CR1.modify(.{ .TE = 1 });
+
+    _ = system;
+    leds.add(1);
+    leds.update();
+
+    var b = false;
+    while (true) {
+        regs.USART1.TDR.modify(.{ .TDR = 'x' });
+        //while (regs.USART1.ISR.read().TC == 0) {}
+        b = !b;
+        if (b) leds.add(2) else leds.remove(2);
+        leds.update();
+        timer.delayMs(500);
+    }
+
+    if (false) {
+        var debug_port = microzig.Uart(1).init(.{
+            .baud_rate = 9600,
+            .stop_bits = .one,
+            .parity = null,
+            .data_bits = .eight,
+        }) catch |err| {
+            leds.add(switch (err) {
+                error.UnsupportedBaudRate => 4,
+                error.UnsupportedParity => 5,
+                error.UnsupportedParity => 6,
+                error.UnsupportedWordSize => 7,
+            });
+            leds.update();
+
+            microzig.hang();
+        };
+
+        _ = debug_port;
+    }
+    microzig.hang();
+
+    //_ = async twoBumpingLeds(&system);
+    //_ = async randomCompass(&system);
+    //system.run();
 }
 
-fn two_bumping_leds(system: *System) void {
+fn randomCompass(system: *System) void {
+    const leds = system.leds;
+    var rng = std.rand.DefaultPrng.init(42).random();
+
+    const D = 24 + 1 * 16;
+
+    var direction: u8 = 0;
+    while (true) {
+        var nr: u3 = 0;
+        while (true) {
+            if (distance(32 * @as(u8, nr), direction) <= D) {
+                leds.add(nr);
+            }
+            nr +%= 1;
+            if (nr == 0) break;
+        }
+        leds.update();
+        system.sleep(150);
+        nr = 0;
+        while (true) {
+            if (distance(32 * @as(u8, nr), direction) <= D) {
+                leds.remove(nr);
+            }
+            nr +%= 1;
+            if (nr == 0) break;
+        }
+        direction +%= rng.uintLessThan(u8, 60) -% 30;
+    }
+}
+
+fn distance(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
+    return std.math.min(b -% a, a -% b);
+}
+
+fn twoBumpingLeds(system: *System) void {
     const leds = system.leds;
 
     var j: u3 = 0;
@@ -178,7 +292,14 @@ fn two_bumping_leds(system: *System) void {
             }
             leds.add(k);
         }
+        leds.update();
 
         system.sleep(rng.uintLessThan(u16, 400));
     }
+}
+
+test {
+    try std.testing.expectEqual(@as(u8, 0), distance(77, 77));
+    try std.testing.expectEqual(@as(u8, 3), distance(12, 15));
+    try std.testing.expectEqual(@as(u8, 4), distance(254, 2));
 }
