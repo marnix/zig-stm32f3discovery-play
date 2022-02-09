@@ -11,18 +11,6 @@ pub const TIM6Timer = struct {
         // Enable TIM6.
         regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
 
-        // Below we assume TIM6 is running on an 8 MHz clock,
-        // which it is by default after system reset:
-        // HSI = 8 MHz is the SYSCLK after reset
-        //  (but we set it in systemInit() regardless),
-        // default AHB prescaler = /1 (= values 0..7):
-        regs.RCC.CFGR.modify(.{ .HPRE = 0 });
-        // so also HCLK = 8 MHz,
-        // default APB1 prescaler = /2:
-        regs.RCC.CFGR.modify(.{ .PPRE1 = 4 });
-        // which causes an implicit factor *2 for Tim2/3/4/6/7
-        // so the result is 8 MHz.
-
         regs.TIM6.CR1.modify(.{
             // Disable counting, toggle it on when we need to when in OPM.
             .CEN = 0,
@@ -31,6 +19,8 @@ pub const TIM6Timer = struct {
         });
 
         // Set prescaler to roughly 1ms per count.
+        // Here we assume TIM6 is running on an 8 MHz clock,
+        // which it is by default after STM32F3DISCOVERY MCU reset.
         regs.TIM6.PSC.modify(.{ .PSC = 7999 });
 
         return @This(){};
