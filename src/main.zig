@@ -93,29 +93,37 @@ const Leds = struct {
 
     pub fn add(self: *@This(), nr: u3) void {
         self._leds[nr] += 1;
-        switch (nr) {
-            0 => regs.GPIOE.BSRR.modify(.{ .BS8 = 1 }),
-            1 => regs.GPIOE.BSRR.modify(.{ .BS9 = 1 }),
-            2 => regs.GPIOE.BSRR.modify(.{ .BS10 = 1 }),
-            3 => regs.GPIOE.BSRR.modify(.{ .BS11 = 1 }),
-            4 => regs.GPIOE.BSRR.modify(.{ .BS12 = 1 }),
-            5 => regs.GPIOE.BSRR.modify(.{ .BS13 = 1 }),
-            6 => regs.GPIOE.BSRR.modify(.{ .BS14 = 1 }),
-            7 => regs.GPIOE.BSRR.modify(.{ .BS15 = 1 }),
-        }
     }
     pub fn remove(self: *@This(), nr: u3) void {
         self._leds[nr] -= 1;
-        if (self._leds[nr] == 0) {
-            switch (nr) {
-                0 => regs.GPIOE.BRR.modify(.{ .BR8 = 1 }),
-                1 => regs.GPIOE.BRR.modify(.{ .BR9 = 1 }),
-                2 => regs.GPIOE.BRR.modify(.{ .BR10 = 1 }),
-                3 => regs.GPIOE.BRR.modify(.{ .BR11 = 1 }),
-                4 => regs.GPIOE.BRR.modify(.{ .BR12 = 1 }),
-                5 => regs.GPIOE.BRR.modify(.{ .BR13 = 1 }),
-                6 => regs.GPIOE.BRR.modify(.{ .BR14 = 1 }),
-                7 => regs.GPIOE.BRR.modify(.{ .BR15 = 1 }),
+    }
+
+    pub fn update(self: *@This()) void {
+        for (self._leds) |n, nr| {
+            if (n > 0) {
+                switch (nr) {
+                    0 => regs.GPIOE.BSRR.modify(.{ .BS8 = 1 }),
+                    1 => regs.GPIOE.BSRR.modify(.{ .BS9 = 1 }),
+                    2 => regs.GPIOE.BSRR.modify(.{ .BS10 = 1 }),
+                    3 => regs.GPIOE.BSRR.modify(.{ .BS11 = 1 }),
+                    4 => regs.GPIOE.BSRR.modify(.{ .BS12 = 1 }),
+                    5 => regs.GPIOE.BSRR.modify(.{ .BS13 = 1 }),
+                    6 => regs.GPIOE.BSRR.modify(.{ .BS14 = 1 }),
+                    7 => regs.GPIOE.BSRR.modify(.{ .BS15 = 1 }),
+                    else => unreachable,
+                }
+            } else {
+                switch (nr) {
+                    0 => regs.GPIOE.BRR.modify(.{ .BR8 = 1 }),
+                    1 => regs.GPIOE.BRR.modify(.{ .BR9 = 1 }),
+                    2 => regs.GPIOE.BRR.modify(.{ .BR10 = 1 }),
+                    3 => regs.GPIOE.BRR.modify(.{ .BR11 = 1 }),
+                    4 => regs.GPIOE.BRR.modify(.{ .BR12 = 1 }),
+                    5 => regs.GPIOE.BRR.modify(.{ .BR13 = 1 }),
+                    6 => regs.GPIOE.BRR.modify(.{ .BR14 = 1 }),
+                    7 => regs.GPIOE.BRR.modify(.{ .BR15 = 1 }),
+                    else => unreachable,
+                }
             }
         }
     }
@@ -124,6 +132,7 @@ const Leds = struct {
         return self._leds[nr] > 0;
     }
 };
+
 const System = struct {
     leds: *Leds,
     timer: *TIM6Timer,
@@ -150,7 +159,42 @@ pub fn main() void {
     var system = System{ .leds = &leds, .timer = timer };
 
     _ = async two_bumping_leds(&system);
+    //_ = async randomCompass(&system);
     system.run();
+}
+
+fn randomCompass(system: *System) void {
+    const leds = system.leds;
+    var rng = std.rand.DefaultPrng.init(42).random();
+
+    const D = 24 + 1 * 16;
+
+    var direction: u8 = 0;
+    while (true) {
+        var nr: u3 = 0;
+        while (true) {
+            if (distance(32 * @as(u8, nr), direction) <= D) {
+                leds.add(nr);
+            }
+            nr +%= 1;
+            if (nr == 0) break;
+        }
+        leds.update();
+        system.sleep(150);
+        nr = 0;
+        while (true) {
+            if (distance(32 * @as(u8, nr), direction) <= D) {
+                leds.remove(nr);
+            }
+            nr +%= 1;
+            if (nr == 0) break;
+        }
+        direction +%= rng.uintLessThan(u8, 60) -% 30;
+    }
+}
+
+fn distance(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
+    return std.math.min(b -% a, a -% b);
 }
 
 fn two_bumping_leds(system: *System) void {
@@ -178,7 +222,14 @@ fn two_bumping_leds(system: *System) void {
             }
             leds.add(k);
         }
+        leds.update();
 
         system.sleep(rng.uintLessThan(u16, 400));
     }
+}
+
+test {
+    try std.testing.expectEqual(@as(u8, 0), distance(77, 77));
+    try std.testing.expectEqual(@as(u8, 3), distance(12, 15));
+    try std.testing.expectEqual(@as(u8, 4), distance(254, 2));
 }
