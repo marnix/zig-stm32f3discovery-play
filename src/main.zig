@@ -10,18 +10,6 @@ pub const TIM6Timer = struct {
         // Enable TIM6.
         regs.RCC.APB1ENR.modify(.{ .TIM6EN = 1 });
 
-        // Below we assume TIM6 is running on an 8 MHz clock,
-        // which it is by default after system reset:
-        // HSI = 8 MHz is the SYSCLK after reset
-        //  (but we set it in systemInit() regardless),
-        // default AHB prescaler = /1 (= values 0..7):
-        regs.RCC.CFGR.modify(.{ .HPRE = 0 });
-        // so also HCLK = 8 MHz,
-        // default APB1 prescaler = /2:
-        regs.RCC.CFGR.modify(.{ .PPRE1 = 4 });
-        // which causes an implicit factor *2,
-        // so the result is 8 MHz.
-
         regs.TIM6.CR1.modify(.{
             // Disable counting, toggle it on when we need to when in OPM.
             .CEN = 0,
@@ -30,6 +18,8 @@ pub const TIM6Timer = struct {
         });
 
         // Set prescaler to roughly 1ms per count.
+        // Here we assume TIM6 is running on an 8 MHz clock,
+        // which it is by default after STM32F3DISCOVERY MCU reset.
         regs.TIM6.PSC.modify(.{ .PSC = 7999 });
 
         return @This(){};
@@ -138,6 +128,7 @@ const System = struct {
     timer: *TIM6Timer,
     wait_time_ms: u16 = undefined,
     fp: anyframe = undefined,
+    debug_writer: microzig.Uart(1).Writer = undefined,
 
     pub fn run(self: *@This()) noreturn {
         while (true) {
@@ -151,14 +142,28 @@ const System = struct {
         self.fp = @frame();
         suspend {}
     }
+
+    pub fn debug(self: *@This(), comptime format: []const u8, args: anytype) !void {
+        try self.debug_writer.print(format, args);
+    }
 };
 
-pub fn main() void {
+pub fn main() !void {
     const timer = TIM6Timer.init();
     var leds = Leds.init();
-    var system = System{ .leds = &leds, .timer = timer };
+    const uart1 = try microzig.Uart(1).init(.{
+        .baud_rate = 9600,
+        .data_bits = .eight,
+        .parity = null,
+        .stop_bits = .one,
+    });
+    var system = System{
+        .leds = &leds,
+        .timer = timer,
+        .debug_writer = uart1.writer(),
+    };
 
-    _ = async two_bumping_leds(&system);
+    _ = async twoBumpingLeds(&system);
     //_ = async randomCompass(&system);
     system.run();
 }
@@ -197,7 +202,7 @@ fn distance(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     return std.math.min(b -% a, a -% b);
 }
 
-fn two_bumping_leds(system: *System) void {
+fn twoBumpingLeds(system: *System) void {
     const leds = system.leds;
 
     var j: u3 = 0;
@@ -224,7 +229,9 @@ fn two_bumping_leds(system: *System) void {
         }
         leds.update();
 
-        system.sleep(rng.uintLessThan(u16, 400));
+        const ms = rng.uintLessThan(u16, 400);
+        try system.debug("sleeping for {} ms\r\n", .{ms});
+        system.sleep(ms);
     }
 }
 
