@@ -14,6 +14,7 @@ pub fn build(b: *Builder) !void {
         "zig-stm32-blink.elf",
         "src/main.zig",
         microzig.Backing{ .board = microzig.boards.stm32f3discovery },
+        microzig.BuildOptions{},
     );
     elf.setBuildMode(mode);
     elf.install();
