@@ -49,9 +49,6 @@ After flashing the board you should see two blinking lights running around in op
   This presumably requires some sort of HAL (hardware abstraction layer),
   which is what [microzig](https://github.com/ZigEmbeddedGroup/microzig) presumably provides.
 
-- How to use std.debug or std.log or whatever
-  to send information back to the host (Linux, Windows, ...)?
-
 - How to use hardware timers and PWM (pulse width modulation)
   to set the leds '40% on', for example?
 
@@ -66,4 +63,5 @@ After flashing the board you should see two blinking lights running around in op
 
 - Try to do some more creative blinking.
 
-- Try out the other hardware on the STM32F3DISCOVERY board.
+- Try out the other hardware on the STM32F3DISCOVERY board,
+  by using I2C and then SPI.
