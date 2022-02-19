@@ -1,6 +1,6 @@
 [![Build with Zig 0.9.0](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%200.9.x/badge.svg?branch=zig-0.9.x)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-0.9.x)
 
-_This branch assumes you use Zig 0.9.0._
+_This branch assumes you use Zig 0.9.1._
 
 # Playing around with pure-Zig STM32F3DISCOVERY
 
@@ -49,9 +49,6 @@ After flashing the board you should see two blinking lights running around in op
   This presumably requires some sort of HAL (hardware abstraction layer),
   which is what [microzig](https://github.com/ZigEmbeddedGroup/microzig) presumably provides.
 
-- How to use std.debug or std.log or whatever
-  to send information back to the host (Linux, Windows, ...)?
-
 - How to use hardware timers and PWM (pulse width modulation)
   to set the leds '40% on', for example?
 
@@ -66,4 +63,5 @@ After flashing the board you should see two blinking lights running around in op
 
 - Try to do some more creative blinking.
 
-- Try out the other hardware on the STM32F3DISCOVERY board.
+- Try out the other hardware on the STM32F3DISCOVERY board,
+  by using I2C and then SPI.
