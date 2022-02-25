@@ -151,12 +151,7 @@ const System = struct {
 pub fn main() !void {
     const timer = TIM6Timer.init();
     var leds = Leds.init();
-    const uart1 = try microzig.Uart(1).init(.{
-        .baud_rate = 9600,
-        .data_bits = .eight,
-        .parity = null,
-        .stop_bits = .one,
-    });
+    const uart1 = try microzig.Uart(1).init(.{ .baud_rate = 460800 });
     var system = System{
         .leds = &leds,
         .timer = timer,
