@@ -159,15 +159,6 @@ pub fn main() !void {
     };
     try system.debug("\r\nMAIN START\r\n", .{});
 
-    const i2c1 = try microzig.I2CMaster(1).init();
-    const xl = i2c1.slave(0b0011001);
-
-    // read accelerometer (I2C address 0b0011001) device ID (0x33 == 51)
-    // from "register" WHO_AM_I_A (0x0F)
-    try xl.write("\x0F");
-    const accelerometer_device_id = try xl.readByte();
-    try system.debug("I2C1 slave 0b0011001 device ID: {} == 51 == 0x33\r\n", .{accelerometer_device_id});
-
     _ = async twoBumpingLeds(&system);
     //_ = async randomCompass(&system);
     system.run();
@@ -207,13 +198,30 @@ fn distance(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     return std.math.min(b -% a, a -% b);
 }
 
-fn twoBumpingLeds(system: *System) void {
+fn twoBumpingLeds(system: *System) !void {
     const leds = system.leds;
 
     var j: u3 = 0;
     var k: u3 = 0;
     leds.add(j);
     leds.add(k);
+
+    const i2c1 = try microzig.I2CController(1).init();
+    // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
+    const xl = i2c1.device(0b0011001);
+    // read device ID (0x33 == 51) from "register" WHO_AM_I_A (0x0F)
+    const accelerometer_device_id = xl.readRegister(0x0F);
+    try system.debug("I2C1 device 0b0011001 device ID: {} == 51 == 0x33\r\n", .{accelerometer_device_id});
+    {
+        // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
+        // normal power mode (.LPen==1),
+        // Z/Y/X all enabled (.Zen==.Yen==.Xen==1)
+        const wt = xl.transfer(.write);
+        {
+            defer wt.stop();
+            try wt.writer().writeAll(&.{ 0x20, 0b01010111 });
+        }
+    }
 
     var rng = std.rand.DefaultPrng.init(42).random();
     while (true) {
@@ -233,6 +241,12 @@ fn twoBumpingLeds(system: *System) void {
             leds.add(k);
         }
         leds.update();
+
+        // get accelerometer X / Y / Z data:
+        // read OUT_* registers: 6 registers starting with OUT_X_L (0x28)
+        var out: [6]u8 = undefined;
+        try xl.readRegisters(0x28, &out);
+        try system.debug("I2C1 device 0b0011001 output: {any}\r\n", .{out});
 
         const ms = rng.uintLessThan(u16, 400);
         try system.debug("sleeping for {} ms\r\n", .{ms});
