@@ -20,7 +20,7 @@ pub const TIM6Timer = struct {
         // Set prescaler to roughly 1ms per count.
         // Here we assume TIM6 is running on an 8 MHz clock,
         // which it is by default after STM32F3DISCOVERY MCU reset.
-        regs.TIM6.PSC.modify(.{ .PSC = 7999 });
+        regs.TIM6.PSC.raw = 7999;
 
         return @This(){};
     }
@@ -29,7 +29,7 @@ pub const TIM6Timer = struct {
         if (n == 0) return; // to avoid counting to 2**16
 
         // Set our value for TIM6 to count to.
-        regs.TIM6.ARR.modify(.{ .ARR = n });
+        regs.TIM6.ARR.raw = n;
 
         // Start the clock using CEN.
         regs.TIM6.CR1.modify(.{ .CEN = 1 });
