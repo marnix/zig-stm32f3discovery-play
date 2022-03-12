@@ -151,21 +151,63 @@ const System = struct {
 pub fn main() !void {
     const timer = TIM6Timer.init();
     var leds = Leds.init();
-    const uart1 = try microzig.Uart(1).init(.{
-        .baud_rate = 9600,
-        .data_bits = .eight,
-        .parity = null,
-        .stop_bits = .one,
-    });
+    const uart1 = try microzig.Uart(1).init(.{ .baud_rate = 460800 });
     var system = System{
         .leds = &leds,
         .timer = timer,
         .debug_writer = uart1.writer(),
     };
+    try system.debug("\r\nMAIN START\r\n", .{});
 
-    _ = async twoBumpingLeds(&system);
+    _ = async heavyLed(&system);
+    //_ = async twoBumpingLeds(&system);
     //_ = async randomCompass(&system);
     system.run();
+}
+
+fn heavyLed(system: *System) !void {
+    const leds = system.leds;
+    const cutoff: i16 = 1000;
+
+    const i2c1 = try microzig.I2CController(1).init();
+    // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
+    const xl = i2c1.device(0b0011001);
+    {
+        // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
+        // normal power mode (.LPen==1),
+        // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
+        const wt = xl.transfer(.write);
+        {
+            defer wt.stop();
+            try wt.writer().writeAll(&.{ 0x20, 0b01010011 });
+        }
+    }
+
+    var current_led: ?u3 = null;
+
+    while (true) {
+        // get accelerometer X / Y data:
+        // read OUT_* registers: 4 registers starting with OUT_X_L (0x28)
+        var out: [4]u8 = undefined;
+        try xl.readRegisters(0x28, &out);
+
+        const x: i16 = @as(i16, out[1]) << 8 | out[0];
+        const y: i16 = @as(i16, out[3]) << 8 | out[2];
+
+        if (current_led) |nr| {
+            leds.remove(nr);
+        }
+        const dx: i2 = if (x < -cutoff) -1 else if (x > cutoff) @as(i2, 1) else 0;
+        const dy: i2 = if (y < -cutoff) -1 else if (y > cutoff) @as(i2, 1) else 0;
+        const arr: [3][3]?u3 = .{ .{ 6, 7, 0 }, .{ 5, null, 1 }, .{ 4, 3, 2 } };
+        current_led = arr[@intCast(u2, dx + 1)][@intCast(u2, (-dy) + 1)];
+        if (current_led) |nr| {
+            leds.add(nr);
+        }
+        leds.update();
+
+        system.sleep(10);
+    }
 }
 
 fn randomCompass(system: *System) void {
@@ -202,13 +244,30 @@ fn distance(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     return std.math.min(b -% a, a -% b);
 }
 
-fn twoBumpingLeds(system: *System) void {
+fn twoBumpingLeds(system: *System) !void {
     const leds = system.leds;
 
     var j: u3 = 0;
     var k: u3 = 0;
     leds.add(j);
     leds.add(k);
+
+    const i2c1 = try microzig.I2CController(1).init();
+    // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
+    const xl = i2c1.device(0b0011001);
+    // read device ID (0x33 == 51) from "register" WHO_AM_I_A (0x0F)
+    const accelerometer_device_id = xl.readRegister(0x0F);
+    try system.debug("I2C1 device 0b0011001 device ID: {} == 51 == 0x33\r\n", .{accelerometer_device_id});
+    {
+        // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
+        // normal power mode (.LPen==1),
+        // Z/Y/X all enabled (.Zen==.Yen==.Xen==1)
+        const wt = xl.transfer(.write);
+        {
+            defer wt.stop();
+            try wt.writer().writeAll(&.{ 0x20, 0b01010111 });
+        }
+    }
 
     var rng = std.rand.DefaultPrng.init(42).random();
     while (true) {
@@ -229,7 +288,18 @@ fn twoBumpingLeds(system: *System) void {
         }
         leds.update();
 
+        // get accelerometer X / Y / Z data:
+        // read OUT_* registers: 6 registers starting with OUT_X_L (0x28)
+        var out: [6]u8 = undefined;
+        try xl.readRegisters(0x28, &out);
+        try system.debug("I2C1 device 0b0011001 output: {any}\r\n", .{out});
+
         const ms = rng.uintLessThan(u16, 400);
+        const x: i16 = @as(i16, out[1]) << 8 | out[0];
+        const y: i16 = @as(i16, out[3]) << 8 | out[2];
+        const z: i16 = @as(i16, out[5]) << 8 | out[4];
+        try system.debug("I2C1 x={d:>6} y={d:>6} z={d:>6}\r\n", .{ x, y, z });
+
         try system.debug("sleeping for {} ms\r\n", .{ms});
         system.sleep(ms);
     }
