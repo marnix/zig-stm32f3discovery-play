@@ -159,9 +159,55 @@ pub fn main() !void {
     };
     try system.debug("\r\nMAIN START\r\n", .{});
 
-    _ = async twoBumpingLeds(&system);
+    _ = async heavyLed(&system);
+    //_ = async twoBumpingLeds(&system);
     //_ = async randomCompass(&system);
     system.run();
+}
+
+fn heavyLed(system: *System) !void {
+    const leds = system.leds;
+    const cutoff: i16 = 1000;
+
+    const i2c1 = try microzig.I2CController(1).init();
+    // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
+    const xl = i2c1.device(0b0011001);
+    {
+        // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
+        // normal power mode (.LPen==1),
+        // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
+        const wt = xl.transfer(.write);
+        {
+            defer wt.stop();
+            try wt.writer().writeAll(&.{ 0x20, 0b01010011 });
+        }
+    }
+
+    var current_led: ?u3 = null;
+
+    while (true) {
+        // get accelerometer X / Y data:
+        // read OUT_* registers: 4 registers starting with OUT_X_L (0x28)
+        var out: [4]u8 = undefined;
+        try xl.readRegisters(0x28, &out);
+
+        const x: i16 = @as(i16, out[1]) << 8 | out[0];
+        const y: i16 = @as(i16, out[3]) << 8 | out[2];
+
+        if (current_led) |nr| {
+            leds.remove(nr);
+        }
+        const dx: i2 = if (x < -cutoff) -1 else if (x > cutoff) @as(i2, 1) else 0;
+        const dy: i2 = if (y < -cutoff) -1 else if (y > cutoff) @as(i2, 1) else 0;
+        const arr: [3][3]?u3 = .{ .{ 6, 7, 0 }, .{ 5, null, 1 }, .{ 4, 3, 2 } };
+        current_led = arr[@intCast(u2, dx + 1)][@intCast(u2, (-dy) + 1)];
+        if (current_led) |nr| {
+            leds.add(nr);
+        }
+        leds.update();
+
+        system.sleep(10);
+    }
 }
 
 fn randomCompass(system: *System) void {
@@ -249,6 +295,11 @@ fn twoBumpingLeds(system: *System) !void {
         try system.debug("I2C1 device 0b0011001 output: {any}\r\n", .{out});
 
         const ms = rng.uintLessThan(u16, 400);
+        const x: i16 = @as(i16, out[1]) << 8 | out[0];
+        const y: i16 = @as(i16, out[3]) << 8 | out[2];
+        const z: i16 = @as(i16, out[5]) << 8 | out[4];
+        try system.debug("I2C1 x={d:>6} y={d:>6} z={d:>6}\r\n", .{ x, y, z });
+
         try system.debug("sleeping for {} ms\r\n", .{ms});
         system.sleep(ms);
     }

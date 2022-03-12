@@ -34,7 +34,8 @@ The command to flash the board is:
 zig build flash
 ```
 
-After flashing the board you should see two blinking lights running around in opposite directions.
+After flashing the board, as you tilt it,
+you should see the LEDs following gravity.
 
 # Ideas that I would like to explore
 
@@ -46,8 +47,8 @@ After flashing the board you should see two blinking lights running around in op
      how many processes want it to be switched on.
 
 - Explore how to have useful `test`s.
-  This presumably requires some sort of HAL (hardware abstraction layer),
-  which is what [microzig](https://github.com/ZigEmbeddedGroup/microzig) presumably provides.
+  Presumably the HAL layer of [microzig](https://github.com/ZigEmbeddedGroup/microzig)
+  can help with this.
 
 - How to use hardware timers and PWM (pulse width modulation)
   to set the leds '40% on', for example?
