@@ -5,6 +5,8 @@ const regs = microzig.chip.registers;
 // this will instantiate microzig and pull in all dependencies
 pub const panic = microzig.panic;
 
+const abs = std.math.absCast;
+
 pub const TIM6Timer = struct {
     pub fn init() @This() {
         // Enable TIM6.
@@ -167,7 +169,6 @@ pub fn main() !void {
 
 fn heavyLed(system: *System) !void {
     const leds = system.leds;
-    const cutoff: i16 = 1000;
 
     const i2c1 = try microzig.I2CController(1).init();
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
@@ -183,7 +184,7 @@ fn heavyLed(system: *System) !void {
         }
     }
 
-    var current_led: ?u3 = null;
+    var current_led: ?u3 = null; // led initially off
 
     while (true) {
         // get accelerometer X / Y data:
@@ -194,16 +195,33 @@ fn heavyLed(system: *System) !void {
         const x: i16 = @as(i16, out[1]) << 8 | out[0];
         const y: i16 = @as(i16, out[3]) << 8 | out[2];
 
-        if (current_led) |nr| {
-            leds.remove(nr);
+        // disable previous led
+        if (current_led) |nr| leds.remove(nr);
+        // enable the right led
+        // Note that for the LSM303AGR accelerometer on the STM32F3DISCOVERY board,
+        // the x-axis points east, y-axis south, and z-axis down.
+        const cutoff: i16 = 1000; // the max x/y/z value is around 18000 in practice
+        if (@as(i32, x) * x + @as(i32, y) * y < @as(i32, cutoff) * cutoff) {
+            // (x,y) close to (0,0), so board is close to horizontal: all off
+            current_led = null;
+        } else {
+            // find out which led on the compass rose points down
+            // Note that 70/169 is almost sqrt(2)-1 == tan(22.5 degrees).
+            if (@as(u32, 169) * abs(y) < @as(u32, 70) * abs(x)) {
+                // (x,y) within 22.5 degrees of x-axis
+                current_led = if (x > 0) 3 else 7; // east or west
+            } else if (@as(u32, 169) * abs(x) < @as(u32, 70) * abs(y)) {
+                // (x,y) within 22.5 degrees of y-axis
+                current_led = if (y > 0) 5 else 1; // south or north
+            } else {
+                if (x > 0) {
+                    current_led = if (y > 0) 4 else 2; // south-east or north-east
+                } else {
+                    current_led = if (y > 0) 6 else 0; // south-west or north-west
+                }
+            }
         }
-        const dx: i2 = if (x < -cutoff) -1 else if (x > cutoff) @as(i2, 1) else 0;
-        const dy: i2 = if (y < -cutoff) -1 else if (y > cutoff) @as(i2, 1) else 0;
-        const arr: [3][3]?u3 = .{ .{ 6, 7, 0 }, .{ 5, null, 1 }, .{ 4, 3, 2 } };
-        current_led = arr[@intCast(u2, dx + 1)][@intCast(u2, (-dy) + 1)];
-        if (current_led) |nr| {
-            leds.add(nr);
-        }
+        if (current_led) |nr| leds.add(nr);
         leds.update();
 
         system.sleep(10);
