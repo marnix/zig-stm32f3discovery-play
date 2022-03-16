@@ -179,7 +179,7 @@ fn heavyLed(system: *System) !void {
         // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
         var wt = try xl.startTransfer(.write);
         {
-            defer wt.stop();
+            defer wt.stop() catch {};
             try wt.writer().writeAll(&.{ 0x20, 0b01010011 });
         }
     }
