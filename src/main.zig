@@ -177,7 +177,7 @@ fn heavyLed(system: *System) !void {
         // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
         // normal power mode (.LPen==1),
         // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
-        const wt = xl.transfer(.write);
+        var wt = try xl.startTransfer(.write);
         {
             defer wt.stop();
             try wt.writer().writeAll(&.{ 0x20, 0b01010011 });
@@ -280,7 +280,7 @@ fn twoBumpingLeds(system: *System) !void {
         // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
         // normal power mode (.LPen==1),
         // Z/Y/X all enabled (.Zen==.Yen==.Xen==1)
-        const wt = xl.transfer(.write);
+        var wt = try xl.startTransfer(.write);
         {
             defer wt.stop();
             try wt.writer().writeAll(&.{ 0x20, 0b01010111 });
