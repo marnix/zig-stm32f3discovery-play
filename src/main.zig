@@ -173,16 +173,11 @@ fn heavyLed(system: *System) !void {
     const i2c1 = try microzig.I2CController(1).init();
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
-    {
-        // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
-        // normal power mode (.LPen==1),
-        // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
-        var wt = try xl.startTransfer(.write);
-        {
-            defer wt.stop() catch {};
-            try wt.writer().writeAll(&.{ 0x20, 0b01010011 });
-        }
-    }
+
+    // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
+    // normal power mode (.LPen==1),
+    // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
+    try xl.writeRegister(0x20, 0b01010011);
 
     var current_led: ?u3 = null; // led initially off
 
