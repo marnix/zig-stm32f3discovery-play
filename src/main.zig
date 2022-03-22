@@ -277,7 +277,7 @@ fn twoBumpingLeds(system: *System) !void {
         // Z/Y/X all enabled (.Zen==.Yen==.Xen==1)
         var wt = try xl.startTransfer(.write);
         {
-            defer wt.stop();
+            defer wt.stop() catch {};
             try wt.writer().writeAll(&.{ 0x20, 0b01010111 });
         }
     }
