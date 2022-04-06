@@ -67,7 +67,7 @@ In I2C mode, the device is driven via MCU pins PA5 + PA7 = SCL + SDA
 (So this is a separate I2C bus from I2C1
 which is used for the eCompass chip's devices.)
 
-In SPI mode, the ports are
+In SPI mode, the SPI1 bus is used, and the ports are
 
 - either 4-wire: MCU pin PA5 + PA7 + PA6 = SPC + SDI + SDO,
 

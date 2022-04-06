@@ -153,7 +153,7 @@ const System = struct {
 pub fn main() !void {
     const timer = TIM6Timer.init();
     var leds = Leds.init();
-    const uart1 = try microzig.Uart(1).init(.{ .baud_rate = 460800 });
+    const uart1 = try microzig.Uart(1).init(.{ .baud_rate = 115200 });
     var system = System{
         .leds = &leds,
         .timer = timer,
@@ -161,10 +161,59 @@ pub fn main() !void {
     };
     try system.debug("\r\nMAIN START\r\n", .{});
 
+    if (true) {
+        const spi1 = try microzig.Spi(1).init(.{});
+        const gyro = spi1.device(microzig.chip.parsePin("PE3"), .{});
+
+        {
+            // var transfer = display.beginTransfer();
+            // defer transfer.end();
+
+            // var writer = transfer.writer();
+            // var reader = transfer.reader(0xAA); // transfer 0xAA for every byte read
+
+            // try writer.writeIntLittle(u8, 0x31);
+            // const response_size = try reader.readIntBig(u16);
+
+            // const buffer = try allocator.alloc(u8, response_size);
+            // defer allocator.free(buffer);
+
+            // transfer.sendAndReceive(buffer); // will send/receive data via the same buffer
+        }
+        _ = spi1;
+
+        try spi1_transceive(0x8F, null); // read no-autoincrement WHO_AM_I = 0x0F, ignore unused read byte
+
+        var result: u8 = undefined;
+        try spi1_transceive(null, &result);
+        try system.debug("WHO_AM_I of gyroscope is {X}, should be D3.\r\n", .{result});
+
+        return;
+    }
+
     _ = async heavyLed(&system);
     //_ = async twoBumpingLeds(&system);
     //_ = async randomCompass(&system);
     system.run();
+}
+
+fn spi1_transceive(w: ?u8, r: ?*u8) !void {
+    const dr_byte_size = @sizeOf(@TypeOf(regs.SPI1.DR.raw));
+
+    while (regs.SPI1.SR.read().TXE == 0) {
+        // try system.debug("SPI1 TXE == 0\r\n", .{});
+    }
+    // try system.debug("SPI1 TXE == 1\r\n", .{});
+    @bitCast([dr_byte_size]u8, regs.SPI1.DR.*)[0] = if (w) |ww| ww else 0x00; // dummy value
+    while (regs.SPI1.SR.read().RXNE == 0) {
+        // try system.debug("SPI1 RXNE == 0\r\n", .{});
+    }
+    // try system.debug("SPI1 RXNE == 1\r\n", .{});
+    const dr_lsb = @bitCast([dr_byte_size]u8, regs.SPI1.DR.raw)[0];
+    // try system.debug("Received: {X}.\r\n", .{dr_lsb});
+    _ = regs.SPI1.SR.read(); // clear overrun flag
+
+    if (r) |p| p.* = dr_lsb;
 }
 
 fn heavyLed(system: *System) !void {
