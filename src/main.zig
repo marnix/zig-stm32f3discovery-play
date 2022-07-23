@@ -2,9 +2,6 @@ const std = @import("std");
 const microzig = @import("microzig");
 const regs = microzig.chip.registers;
 
-// this will instantiate microzig and pull in all dependencies
-pub const panic = microzig.panic;
-
 const abs = std.math.absCast;
 
 pub const TIM6Timer = struct {
@@ -130,7 +127,7 @@ const System = struct {
     timer: *TIM6Timer,
     wait_time_ms: u16 = undefined,
     fp: anyframe = undefined,
-    debug_writer: microzig.Uart(1).Writer = undefined,
+    debug_writer: microzig.Uart(1, .{}).Writer = undefined,
 
     pub fn run(self: *@This()) noreturn {
         while (true) {
@@ -153,7 +150,7 @@ const System = struct {
 pub fn main() !void {
     const timer = TIM6Timer.init();
     var leds = Leds.init();
-    const uart1 = try microzig.Uart(1).init(.{ .baud_rate = 460800 });
+    const uart1 = try microzig.Uart(1, .{}).init(.{ .baud_rate = 460800 });
     var system = System{
         .leds = &leds,
         .timer = timer,
@@ -170,7 +167,7 @@ pub fn main() !void {
 fn heavyLed(system: *System) !void {
     const leds = system.leds;
 
-    const i2c1 = try microzig.I2CController(1).init();
+    const i2c1 = try microzig.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
 
@@ -265,7 +262,7 @@ fn twoBumpingLeds(system: *System) !void {
     leds.add(j);
     leds.add(k);
 
-    const i2c1 = try microzig.I2CController(1).init();
+    const i2c1 = try microzig.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
     // read device ID (0x33 == 51) from "register" WHO_AM_I_A (0x0F)
@@ -277,7 +274,7 @@ fn twoBumpingLeds(system: *System) !void {
         // Z/Y/X all enabled (.Zen==.Yen==.Xen==1)
         var wt = try xl.startTransfer(.write);
         {
-            defer wt.stop();
+            defer wt.stop() catch {};
             try wt.writer().writeAll(&.{ 0x20, 0b01010111 });
         }
     }
