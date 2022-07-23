@@ -1,6 +1,6 @@
-[![Build with Zig 0.9.0](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%200.9.x/badge.svg?branch=zig-0.9.x)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-0.9.x)
+[![Build with Zig master](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%20master/badge.svg?branch=zig-master)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-master)
 
-_This branch assumes you use Zig 0.9.1._
+_This branch assumes you use Zig master._
 
 # Playing around with pure-Zig STM32F3DISCOVERY
 
