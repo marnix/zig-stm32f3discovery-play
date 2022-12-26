@@ -9,7 +9,7 @@ pub fn build(b: *Builder) !void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const elf = try microzig.addEmbeddedExecutable(
+    var elf = microzig.addEmbeddedExecutable(
         b,
         "zig-stm32f3discovery-play.elf",
         "src/main.zig",
@@ -17,9 +17,11 @@ pub fn build(b: *Builder) !void {
         microzig.BuildOptions{},
     );
     elf.setBuildMode(mode);
+    elf.inner.use_stage1 = true; // ...because Zig self-hosted doesn't support async yet
+    elf.inner.strip = false; // we always want debug symbols, stripping brings us no benefit on embedded
     elf.install();
 
-    const bin = b.addInstallRaw(elf, "zig-stm32f3discovery-play.bin", .{});
+    const bin = elf.installRaw("zig-stm32f3discovery-play.bin", .{});
     const bin_step = b.step("bin", "Generate binary file to be flashed");
     bin_step.dependOn(&bin.step);
 
@@ -33,6 +35,6 @@ pub fn build(b: *Builder) !void {
     const flash_step = b.step("flash", "Flash and run the app on your STM32F3Discovery");
     flash_step.dependOn(&flash_cmd.step);
 
-    b.default_step.dependOn(&elf.step);
-    b.installArtifact(elf);
+    b.default_step.dependOn(&elf.inner.step);
+    b.installArtifact(elf.inner);
 }
