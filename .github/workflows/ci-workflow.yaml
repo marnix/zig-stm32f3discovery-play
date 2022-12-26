@@ -16,5 +16,5 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.11.0-dev.538+bf316e550
-      - run: zig build
+      - run: zig build -Drelease-small=true --verbose
       - run: zig fmt --check build.zig *.zig
