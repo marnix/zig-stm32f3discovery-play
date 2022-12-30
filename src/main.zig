@@ -16,28 +16,36 @@ pub const TIM6Timer = struct {
             .OPM = 1,
         });
 
-        // Set prescaler to roughly 1ms per count.
-        // Here we assume TIM6 is running on an 8 MHz clock,
-        // which it is by default after STM32F3DISCOVERY MCU reset.
-        regs.TIM6.PSC.raw = 7999;
-
         return @This(){};
     }
 
     pub fn delayMs(_: @This(), n: u16) void {
         if (n == 0) return; // to avoid counting to 2**16
 
+        // Set prescaler to roughly 1ms per count.
+        // Here we assume TIM6 is running on an 8 MHz clock,
+        // which it is by default after STM32F3DISCOVERY MCU reset.
+        regs.TIM6.PSC.raw = 7999;
+        regs.TIM6.EGR.modify(.{ .UG = 1 }); // so that PSC is picked up and CNT reset, sets UIF
+        regs.TIM6.SR.modify(.{ .UIF = 0 }); // clear UIF
+
         // Set our value for TIM6 to count to.
-        regs.TIM6.ARR.raw = n;
+        regs.TIM6.ARR.raw = n; // picked up directly as ARPE = 0 by default
 
         // Start the clock using CEN.
         regs.TIM6.CR1.modify(.{ .CEN = 1 });
 
         // Wait for TIM6 to set the status register.
         while (regs.TIM6.SR.read().UIF == 0) {}
+    }
 
-        // Clear the status register.
-        regs.TIM6.SR.modify(.{ .UIF = 0 });
+    pub fn click(_: @This()) void {
+        regs.TIM6.PSC.raw = 1; // no scaling down, use clock frequency
+        regs.TIM6.EGR.modify(.{ .UG = 1 }); // so that PSC is picked up and CNT reset, sets UIF
+        regs.TIM6.SR.modify(.{ .UIF = 0 }); // clear UIF
+        regs.TIM6.ARR.raw = 1; // picked up directly as ARPE = 0 by default
+        regs.TIM6.CR1.modify(.{ .CEN = 1 });
+        while (regs.TIM6.SR.read().UIF == 0) {}
     }
 };
 
@@ -267,7 +275,7 @@ fn twoBumpingLeds(system: *System) !void {
     const xl = i2c1.device(0b0011001);
     // read device ID (0x33 == 51) from "register" WHO_AM_I_A (0x0F)
     const accelerometer_device_id = xl.readRegister(0x0F);
-    try system.debug("I2C1 device 0b0011001 device ID: {} == 51 == 0x33\r\n", .{accelerometer_device_id});
+    try system.debug("I2C1 device 0b0011001 device ID: {any} == 51 == 0x33\r\n", .{accelerometer_device_id});
     {
         // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
         // normal power mode (.LPen==1),

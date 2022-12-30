@@ -27,6 +27,7 @@ pub fn build(b: *Builder) !void {
 
     const flash_cmd = b.addSystemCommand(&[_][]const u8{
         "st-flash",
+        "--reset",
         "write",
         b.getInstallPath(bin.dest_dir, bin.dest_filename),
         "0x8000000",
