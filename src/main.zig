@@ -275,7 +275,7 @@ fn twoBumpingLeds(system: *System) !void {
     const xl = i2c1.device(0b0011001);
     // read device ID (0x33 == 51) from "register" WHO_AM_I_A (0x0F)
     const accelerometer_device_id = xl.readRegister(0x0F);
-    try system.debug("I2C1 device 0b0011001 device ID: {} == 51 == 0x33\r\n", .{accelerometer_device_id});
+    try system.debug("I2C1 device 0b0011001 device ID: {any} == 51 == 0x33\r\n", .{accelerometer_device_id});
     {
         // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
         // normal power mode (.LPen==1),
