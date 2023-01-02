@@ -166,10 +166,78 @@ pub fn main() !void {
     };
     try system.debug("\r\nMAIN START\r\n", .{});
 
-    _ = async heavyLed(&system);
+    _ = async slowLed(&system);
+    //_ = async heavyLed(&system);
     //_ = async twoBumpingLeds(&system);
     //_ = async randomCompass(&system);
     system.run();
+}
+
+fn slowLed(system: *System) !void {
+    const leds = system.leds;
+
+    const spi1 = try microzig.SpiBus(1).init(.{});
+    var gyro = spi1.device(microzig.chip.parsePin("PE3"), .{});
+
+    // var gyro_id = try gyro.readRegister(0x0F); // WHO_AM_I
+    // try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
+
+    // set CTRL_REG1 (0x20) to 100 Hz with cutoff 12.5 (.DR==0b00, .BW=0b00),
+    // power on (.PD==0b1),
+    // Z/Y/X all enabled (.Zen==0, .Yen==.Xen==1)
+    try gyro.writeRegister(0x20, 0b00_00_1_011);
+
+    var current_led: ?u3 = null; // led initially off
+
+    while (true) {
+        // get gyroscope X / Y data:
+        // read OUT_* registers: 4 registers starting with OUT_X_L (0x28)
+        var out: [4]u8 = undefined;
+        try gyro.readRegisters(0x28, &out);
+        const x: i16 = @as(i16, out[1]) << 8 | out[0];
+        const y: i16 = @as(i16, out[3]) << 8 | out[2];
+        if (false) {
+            try system.debug("OUT_X = {:6}, OUT_Y = {:6}\r\n", .{ x, y });
+            break;
+        }
+
+        // disable previous led
+        if (current_led) |nr| leds.remove(nr);
+        // enable the right led, here: the led opposite to the direction of rotation
+        //
+        // Note that for the I3G4250D gyroscope on the STM32F3DISCOVERY board,
+        // the x-axis points east, y-axis north, and z-axis up;
+        // counter-clockwise from the chip's POV is positive.
+        //
+        // Therefore enable
+        // south if x > 0, north if x < 0,
+        // east if y > 0, west if y < 0.
+        const cutoff: i16 = 2000; // the max x/y/z value is +/- 2**15
+        if (@as(i32, x) * x + @as(i32, y) * y < @as(i32, cutoff) * cutoff) {
+            // (x,y) close to (0,0), so board is fairly stationary: all off
+            current_led = null;
+        } else {
+            // find out which led on the compass rose to enable
+            // Note that 70/169 is almost sqrt(2)-1 == tan(22.5 degrees).
+            if (@as(u32, 169) * abs(x) < @as(u32, 70) * abs(y)) {
+                // (x,y) within 22.5 degrees of y-axis
+                current_led = if (y > 0) 3 else 7; // east or west
+            } else if (@as(u32, 169) * abs(y) < @as(u32, 70) * abs(x)) {
+                // (x,y) within 22.5 degrees of x-axis
+                current_led = if (x > 0) 5 else 1; // south or north
+            } else {
+                if (y > 0) {
+                    current_led = if (x > 0) 4 else 2; // south-east or north-east
+                } else {
+                    current_led = if (x > 0) 6 else 0; // south-west or north-west
+                }
+            }
+        }
+        if (current_led) |nr| leds.add(nr);
+        leds.update();
+
+        system.sleep(10);
+    }
 }
 
 fn heavyLed(system: *System) !void {
