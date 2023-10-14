@@ -19,7 +19,7 @@ Since then, this project has been updated to build on top of
 To build the ELF file just run:
 
 ```
-zig build
+zig build -Drelease-small=true
 ```
 
 ## Flashing
@@ -31,7 +31,7 @@ repos, the build system will try to use the `st-flash` program.
 The command to flash the board is:
 
 ```
-zig build flash
+zig build flash -Drelease-small=true
 ```
 
 After flashing the board, as you tilt it,
