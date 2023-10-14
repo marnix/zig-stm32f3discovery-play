@@ -1,6 +1,6 @@
 [![Build with Zig master](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%20master/badge.svg?branch=zig-master)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-master)
 
-_This branch assumes you use Zig master._
+_This branch assumes you use Zig 0.11.0-dev.538+bf316e550 (the last post-0.10 version that supports `async`)._
 
 # Playing around with pure-Zig STM32F3DISCOVERY
 
