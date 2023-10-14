@@ -173,14 +173,68 @@ pub fn main() !void {
     system.run();
 }
 
+/// Auto-detect whether or not the gyro is in 3-wire / bidi / half-duplex mode.
+///
+/// Try to read the gyro's 0x0F register, with the SPI bus in both modes,
+/// and choose the mode that gives the expected 0xD3 response.
+///
+/// This works because, if the device is in 4-wire = full-duplex mode,
+/// it sends the response back on the MISO line;
+/// while in 3-wire = bidi = half-duplex mode,
+/// it sends the response back on the same SPI bus MOSI line
+/// that the SPI bus used to send the 'read register 0x0F' request.
+///
+/// So reading a non-bidi response sent by a bidi device,
+/// or reading a bidi response sent by a non-bidi device,
+/// will both result in garbage that is very unlikely to be exactly 0xD3.
+fn probeGyroBidiMode(gyro: anytype) !u1 {
+    var who_am_is: [2]u8 = undefined;
+    var spi1_bidi_mode = regs.SPI1.CR1.read().BIDIMODE;
+    for ([_]u1{ 0, 1 }) |_| {
+        who_am_is[spi1_bidi_mode] = try gyro.readRegister(0x0F);
+        spi1_bidi_mode = 1 - spi1_bidi_mode;
+        regs.SPI1.CR1.modify(.{ .BIDIMODE = spi1_bidi_mode });
+    }
+    // TODO: check that exactly one of who_am_is is 0xD3.
+    return @boolToInt(who_am_is[1] == 0xD3);
+}
+
 fn slowLed(system: *System) !void {
     const leds = system.leds;
 
     const spi1 = try microzig.SpiBus(1).init(.{});
     var gyro = spi1.device(microzig.chip.parsePin("PE3"), .{});
 
-    // var gyro_id = try gyro.readRegister(0x0F); // WHO_AM_I
-    // try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
+    try system.debug("--- switch SPI1 to the gyro's BIDI mode:\r\n", .{});
+    const gyro_bidi_mode = try probeGyroBidiMode(gyro);
+    try system.debug("setting SPI1 BIDIMODE={d} <= gyro SIM={d} <= gyro responses\r\n", .{ gyro_bidi_mode, gyro_bidi_mode });
+    regs.SPI1.CR1.modify(.{ .BIDIMODE = gyro_bidi_mode });
+
+    var gyro_id = try gyro.readRegister(0x0F); // WHO_AM_I
+    try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
+
+    if (gyro_id != 0xD3) return;
+
+    // HERE WE MAKE THE ARBITRARY CHOICE TO TALK TO THE GYRO DEVICE IN BIDI MODE
+    const use_bidi_mode = true;
+
+    try system.debug("--- set SPI1 and gyro to BIDI mode? {}\r\n", .{use_bidi_mode});
+    {
+        const desired_mode = @boolToInt(use_bidi_mode);
+
+        try system.debug("setting gyro SIM={d}\r\n", .{desired_mode});
+        try gyro.writeRegister(0x23, (0x00 & 0xFE) | desired_mode);
+        try system.debug("setting SPI1 BIDIMODE={d}\r\n", .{desired_mode});
+        regs.SPI1.CR1.modify(.{ .BIDIMODE = desired_mode });
+
+        try system.debug("BIDIMODE = {d}\r\n", .{regs.SPI1.CR1.read().BIDIMODE});
+        try system.debug("gyro SIM mode = {d}\r\n", .{(try gyro.readRegister(0x23)) & 0b1});
+    }
+
+    gyro_id = try gyro.readRegister(0x0F); // WHO_AM_I
+    try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
+
+    if (gyro_id != 0xD3) return;
 
     // set CTRL_REG1 (0x20) to 100 Hz with cutoff 12.5 (.DR==0b00, .BW=0b00),
     // power on (.PD==0b1),
