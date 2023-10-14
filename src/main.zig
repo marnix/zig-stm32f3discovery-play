@@ -133,21 +133,10 @@ const Leds = struct {
 const System = struct {
     leds: *Leds,
     timer: *TIM6Timer,
-    wait_time_ms: u16 = undefined,
-    fp: anyframe = undefined,
     debug_writer: microzig.Uart(1, .{}).Writer = undefined,
 
-    pub fn run(self: *@This()) noreturn {
-        while (true) {
-            self.timer.delayMs(self.wait_time_ms);
-            resume self.fp;
-        }
-    }
-
     pub fn sleep(self: *@This(), ms: u16) void {
-        self.wait_time_ms = ms;
-        self.fp = @frame();
-        suspend {}
+        self.timer.delayMs(ms);
     }
 
     pub fn debug(self: *@This(), comptime format: []const u8, args: anytype) !void {
@@ -166,11 +155,10 @@ pub fn main() !void {
     };
     try system.debug("\r\nMAIN START\r\n", .{});
 
-    _ = async slowLed(&system);
-    //_ = async heavyLed(&system);
-    //_ = async twoBumpingLeds(&system);
-    //_ = async randomCompass(&system);
-    system.run();
+    try slowLed(&system);
+    // try heavyLed(&system);
+    // try twoBumpingLeds(&system);
+    // randomCompass(&system);
 }
 
 /// Auto-detect whether or not the gyro is in 3-wire / bidi / half-duplex mode.

@@ -17,7 +17,6 @@ pub fn build(b: *Builder) !void {
         microzig.BuildOptions{},
     );
     elf.setBuildMode(mode);
-    elf.inner.use_stage1 = true; // ...because Zig self-hosted doesn't support async yet
     elf.inner.strip = false; // we always want debug symbols, stripping brings us no benefit on embedded
     elf.install();
 
