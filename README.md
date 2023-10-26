@@ -1,6 +1,6 @@
-[![Build with Zig master](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%20master/badge.svg?branch=zig-master)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-master)
+[![Build with Zig 0.11.x](https://github.com/marnix/zig-stm32f3discovery-play/workflows/Build%20with%20zig%200.11.x/badge.svg?branch=zig-0.11.x)](https://github.com/marnix/zig-stm32f3discovery-play/actions?query=branch%3Azig-0.11.x)
 
-_This branch assumes you use Zig 0.11.0-dev.538+bf316e550 (the last post-0.10 version that supports `async`)._
+_This branch assumes you use Zig 0.11.x._
 
 # Playing around with pure-Zig STM32F3DISCOVERY
 
@@ -19,8 +19,12 @@ Since then, this project has been updated to build on top of
 To build the ELF file just run:
 
 ```
-zig build -Drelease-small=true
+zig build
 ```
+
+(This results in a debug build.
+_Open issue._ Note that the `-Drelease=true` binary does not currently work,
+for a still unknown reason.)
 
 ## Flashing
 
@@ -31,7 +35,7 @@ repos, the build system will try to use the `st-flash` program.
 The command to flash the board is:
 
 ```
-zig build flash -Drelease-small=true
+zig build flash
 ```
 
 After flashing the board, as you tilt it,
