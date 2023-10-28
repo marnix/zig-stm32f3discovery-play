@@ -3,8 +3,8 @@
     .version = "0.1.0",
     .dependencies = .{
         .microzig = .{
-            .url = "https://github.com/ZigEmbeddedGroup/microzig/archive/2873e9e0b109ce55aab083e56225c783f2b7ff2a.tar.gz",
-            .hash = "122069f22bda4feb48d08b637a2ff5bf14cd0dc5d91936bf20e684d7b2b9b4b2ad55",
+            .url = "https://github.com/ZigEmbeddedGroup/microzig/archive/b60a45c3162e8ca76c0f6c23424316abe5c2464e.tar.gz",
+            .hash = "122098a603fec40519f78c2dc2aeaf715956c6315cbfa6cae6334bf28b74c5416fc0",
         },
         .stm32 = .{
             .url = "https://github.com/ZigEmbeddedGroup/stmicro-stm32/archive/ec38467975b6271fc791f1c25aeb8ef2b483612a.tar.gz",

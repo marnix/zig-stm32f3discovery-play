@@ -286,7 +286,6 @@ fn slowLed(system: *System) !void {
 fn heavyLed(system: *System) !void {
     const leds = system.leds;
 
-    leds.update(); //FIXME: This is needed to make things not block after the following I2C init() call?!?
     const i2c1 = try microzig.core.experimental.i2c.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
@@ -383,7 +382,6 @@ fn twoBumpingLeds(system: *System) !void {
     leds.add(j);
     leds.add(k);
 
-    leds.update(); //FIXME: This is needed to make things not block after the following I2C init() call?!?
     const i2c1 = try microzig.core.experimental.i2c.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
