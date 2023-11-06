@@ -3,12 +3,12 @@
     .version = "0.1.0",
     .dependencies = .{
         .microzig = .{
-            .url = "https://github.com/ZigEmbeddedGroup/microzig/archive/b60a45c3162e8ca76c0f6c23424316abe5c2464e.tar.gz",
-            .hash = "122098a603fec40519f78c2dc2aeaf715956c6315cbfa6cae6334bf28b74c5416fc0",
+            .url = "https://github.com/ZigEmbeddedGroup/microzig/archive/fdb0d185588b847cd8efc98f6d8675fec481bfdc.tar.gz",
+            .hash = "12205afa78531c7ef1598ccaaaa2c5548966b58a3c0972ca8224d1f3d7b89a1b0651",
         },
         .stm32 = .{
-            .url = "https://github.com/ZigEmbeddedGroup/stmicro-stm32/archive/ec38467975b6271fc791f1c25aeb8ef2b483612a.tar.gz",
-            .hash = "122064447fcb06c149094e027a4a4e4ce152adabaae3755500459339109d91d3b8e2",
+            .url = "https://github.com/ZigEmbeddedGroup/stmicro-stm32/archive/d7e9abf9c55bb0cc1809b48736c9256295d48763.tar.gz",
+            .hash = "1220cf19944dc3590501d64aa727de8a1a58cba88484a621be8fffab232df45ea648",
         },
     },
 }

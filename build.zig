@@ -12,7 +12,6 @@ pub fn build(b: *std.Build) !void {
     const firmware = microzig.addFirmware(b, .{
         .name = "zig-stm32f3discovery-play",
         .target = stm32.boards.stm32f3discovery,
-        // TODO: Make -Drelease=true actually work... Microzig or Zig 0.11.0 bug?
         .optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSmall }),
         .source_file = .{ .path = "src/main.zig" },
     });
