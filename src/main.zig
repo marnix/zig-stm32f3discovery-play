@@ -134,14 +134,14 @@ const Leds = struct {
 const System = struct {
     leds: *Leds,
     timer: TIM6Timer,
-    debug_writer: uart.Uart(1, .{}).Writer = undefined,
+    debug_writer: ?uart.Uart(1, .{}).Writer = null,
 
     pub fn sleep(self: *@This(), ms: u16) void {
         self.timer.delayMs(ms);
     }
 
     pub fn debug(self: *@This(), comptime format: []const u8, args: anytype) !void {
-        try self.debug_writer.print(format, args);
+        if (self.debug_writer) |w| try w.print(format, args);
     }
 };
 
