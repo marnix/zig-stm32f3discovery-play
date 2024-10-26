@@ -189,31 +189,29 @@ pub fn main() !void {
 /// it sends the response back on the same SPI bus MOSI line
 /// that the SPI bus used to send the 'read register 0x0F' request.
 ///
-/// So reading a non-bidi response sent by a bidi device,
-/// or reading a bidi response sent by a non-bidi device,
-/// will both result in garbage that is very unlikely to be exactly 0xD3.
-fn probeGyroBidiMode(gyro: anytype) !u1 {
-    var who_am_is: [2]u8 = undefined;
-    var spi1_bidi_mode = regs.SPI1.CR1.read().BIDIMODE;
-    for ([_]u1{ 0, 1 }) |_| {
-        who_am_is[spi1_bidi_mode] = try gyro.read_register(0x0F);
-        spi1_bidi_mode = 1 - spi1_bidi_mode;
-        regs.SPI1.CR1.modify(.{ .BIDIMODE = spi1_bidi_mode });
-    }
-    // TODO: check that exactly one of who_am_is is 0xD3.
-    return @intFromBool(who_am_is[1] == 0xD3);
+/// So reading a non-bidi response from the MISO line, sent by a bidi device on the MOSI line,
+/// or reading a bidi response from the MOSI line, sent by a non-bidi device on the MISO line,,
+/// will both read garbage that is very unlikely to be exactly 0xD3.
+fn probeGyroBidiMode(spi_bus: anytype, gyro_cs_pin: anytype) !bool {
+    const gyro_bidi_true = spi_bus.device(gyro_cs_pin, .{ .bidi = true });
+    const who_am_i_bidi_true = try gyro_bidi_true.read_register(0x0F);
+
+    const gyro_bidi_false = spi_bus.device(gyro_cs_pin, .{ .bidi = false });
+    const who_am_i_bidi_false = try gyro_bidi_false.read_register(0x0F);
+    _ = who_am_i_bidi_false; // TODO: check that exactly one of who_am_i's is 0xD3.
+
+    return (who_am_i_bidi_true == 0xD3);
 }
 
 fn slowLed(system: *System) !void {
     const leds = system.leds;
 
     const spi1 = try spi.SpiBus(1).init(.{});
-    var gyro = spi1.device(microzig.hal.parse_pin("PE3"), .{});
-
-    try system.debug("--- switch SPI1 to the gyro's BIDI mode:\r\n", .{});
-    const gyro_bidi_mode = try probeGyroBidiMode(gyro);
-    try system.debug("setting SPI1 BIDIMODE={d} <= gyro SIM={d} <= gyro responses\r\n", .{ gyro_bidi_mode, gyro_bidi_mode });
-    regs.SPI1.CR1.modify(.{ .BIDIMODE = gyro_bidi_mode });
+    const gyro_cs_pin = microzig.hal.parse_pin("PE3");
+    const gyro_bidi_mode = try probeGyroBidiMode(spi1, gyro_cs_pin);
+    try system.debug("using SPI1 BIDIMODE={} <= gyro SIM={} <= gyro responses\r\n", .{ gyro_bidi_mode, gyro_bidi_mode });
+    if (gyro_bidi_mode != true) return;
+    const gyro = spi1.device(microzig.hal.parse_pin("PE3"), .{ .bidi = true });
 
     var gyro_id = try gyro.read_register(0x0F); // WHO_AM_I
     try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
