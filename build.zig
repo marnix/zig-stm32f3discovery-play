@@ -22,7 +22,8 @@ pub fn build(b: *std.Build) !void {
 
     const flash_cmd = b.addSystemCommand(&[_][]const u8{
         "st-flash",
-        "--reset",
+        //"--reset",
+        "--connect-under-reset",
         "write",
         b.getInstallPath(install_step.dir, install_step.dest_rel_path),
         "0x8000000",
