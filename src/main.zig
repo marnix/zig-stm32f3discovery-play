@@ -146,6 +146,13 @@ const System = struct {
 };
 
 pub fn main() !void {
+    // Enable both CP10 and CP11 FPU co-processors on Cortex-M4.
+    // (See PM0214 Programming Manual (Revision 10),
+    // section 4.6.6 "Enabling the FPU".)
+    regs.FPU_CPACR.CPACR.modify(.{ .CP = 0b11_11 }); // CP11 and CP10
+    microzig.cpu.dsb();
+    microzig.cpu.isb();
+
     const timer = TIM6Timer.init();
     var leds = Leds.init();
     const uart1 = try uart.Uart(1, .{}).init(.{ .baud_rate = 460800 });
