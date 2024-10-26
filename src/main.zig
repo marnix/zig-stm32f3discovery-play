@@ -1,8 +1,9 @@
 const std = @import("std");
 const microzig = @import("microzig");
-const regs = microzig.chip.registers;
-
 const abs = std.math.absCast;
+const regs = microzig.chip.peripherals;
+const uart = microzig.core.experimental.uart;
+const spi = microzig.core.experimental.spi;
 
 pub const TIM6Timer = struct {
     pub fn init() @This() {
@@ -96,7 +97,7 @@ const Leds = struct {
     }
 
     pub fn update(self: *@This()) void {
-        for (self._leds) |n, nr| {
+        for (self._leds, 0..) |n, nr| {
             if (n > 0) {
                 switch (nr) {
                     0 => regs.GPIOE.BSRR.modify(.{ .BS8 = 1 }),
@@ -132,28 +133,44 @@ const Leds = struct {
 
 const System = struct {
     leds: *Leds,
-    timer: *TIM6Timer,
-    debug_writer: microzig.Uart(1, .{}).Writer = undefined,
+    timer: TIM6Timer,
+    debug_writer: ?uart.Uart(1, .{}).Writer = null,
 
     pub fn sleep(self: *@This(), ms: u16) void {
         self.timer.delayMs(ms);
     }
 
     pub fn debug(self: *@This(), comptime format: []const u8, args: anytype) !void {
-        try self.debug_writer.print(format, args);
+        if (self.debug_writer) |w| try w.print(format, args);
     }
 };
 
 pub fn main() !void {
+    // Enable both CP10 and CP11 FPU co-processors on Cortex-M4.
+    // (See PM0214 Programming Manual (Revision 10),
+    // section 4.6.6 "Enabling the FPU".)
+    regs.FPU_CPACR.CPACR.modify(.{ .CP = 0b11_11 }); // CP11 and CP10
+    microzig.cpu.dsb();
+    microzig.cpu.isb();
+
     const timer = TIM6Timer.init();
     var leds = Leds.init();
-    const uart1 = try microzig.Uart(1, .{}).init(.{ .baud_rate = 460800 });
+    const uart1 = try uart.Uart(1, .{}).init(.{ .baud_rate = 460800 });
     var system = System{
         .leds = &leds,
         .timer = timer,
         .debug_writer = uart1.writer(),
     };
     try system.debug("\r\nMAIN START\r\n", .{});
+    try system.debug("tau={}.\r\n", .{comptime std.math.tau});
+    try system.debug("0={}.\r\n", .{comptime std.math.sin(std.math.tau)});
+    var x: f64 = std.math.tau;
+    try system.debug("tau={}.\r\n", .{x});
+    x = std.math.sin(x);
+    try system.debug("0={}.\r\n", .{x});
+    // try system.debug("1={}.\r\n", .{comptime std.math.cos(std.math.tau)});
+    // try system.debug("0={}.\r\n", .{comptime std.math.tan(std.math.tau)});
+    // try system.debug("+/-oo={}.\r\n", .{comptime std.math.tan(std.math.tau / 4.0)});
 
     try slowLed(&system);
     // try heavyLed(&system);
@@ -172,33 +189,31 @@ pub fn main() !void {
 /// it sends the response back on the same SPI bus MOSI line
 /// that the SPI bus used to send the 'read register 0x0F' request.
 ///
-/// So reading a non-bidi response sent by a bidi device,
-/// or reading a bidi response sent by a non-bidi device,
-/// will both result in garbage that is very unlikely to be exactly 0xD3.
-fn probeGyroBidiMode(gyro: anytype) !u1 {
-    var who_am_is: [2]u8 = undefined;
-    var spi1_bidi_mode = regs.SPI1.CR1.read().BIDIMODE;
-    for ([_]u1{ 0, 1 }) |_| {
-        who_am_is[spi1_bidi_mode] = try gyro.readRegister(0x0F);
-        spi1_bidi_mode = 1 - spi1_bidi_mode;
-        regs.SPI1.CR1.modify(.{ .BIDIMODE = spi1_bidi_mode });
-    }
-    // TODO: check that exactly one of who_am_is is 0xD3.
-    return @boolToInt(who_am_is[1] == 0xD3);
+/// So reading a non-bidi response from the MISO line, sent by a bidi device on the MOSI line,
+/// or reading a bidi response from the MOSI line, sent by a non-bidi device on the MISO line,,
+/// will both read garbage that is very unlikely to be exactly 0xD3.
+fn probeGyroBidiMode(spi_bus: anytype, gyro_cs_pin: anytype) !bool {
+    const gyro_bidi_true = spi_bus.device(gyro_cs_pin, .{ .bidi = true });
+    const who_am_i_bidi_true = try gyro_bidi_true.read_register(0x0F);
+
+    const gyro_bidi_false = spi_bus.device(gyro_cs_pin, .{ .bidi = false });
+    const who_am_i_bidi_false = try gyro_bidi_false.read_register(0x0F);
+    _ = who_am_i_bidi_false; // TODO: check that exactly one of who_am_i's is 0xD3.
+
+    return (who_am_i_bidi_true == 0xD3);
 }
 
 fn slowLed(system: *System) !void {
     const leds = system.leds;
 
-    const spi1 = try microzig.SpiBus(1).init(.{});
-    var gyro = spi1.device(microzig.chip.parsePin("PE3"), .{});
+    const spi1 = try spi.SpiBus(1).init(.{});
+    const gyro_cs_pin = microzig.hal.parse_pin("PE3");
+    const gyro_bidi_mode = try probeGyroBidiMode(spi1, gyro_cs_pin);
+    try system.debug("using SPI1 BIDIMODE={} <= gyro SIM={} <= gyro responses\r\n", .{ gyro_bidi_mode, gyro_bidi_mode });
+    if (gyro_bidi_mode != true) return;
+    const gyro = spi1.device(microzig.hal.parse_pin("PE3"), .{ .bidi = true });
 
-    try system.debug("--- switch SPI1 to the gyro's BIDI mode:\r\n", .{});
-    const gyro_bidi_mode = try probeGyroBidiMode(gyro);
-    try system.debug("setting SPI1 BIDIMODE={d} <= gyro SIM={d} <= gyro responses\r\n", .{ gyro_bidi_mode, gyro_bidi_mode });
-    regs.SPI1.CR1.modify(.{ .BIDIMODE = gyro_bidi_mode });
-
-    var gyro_id = try gyro.readRegister(0x0F); // WHO_AM_I
+    var gyro_id = try gyro.read_register(0x0F); // WHO_AM_I
     try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
 
     if (gyro_id != 0xD3) return;
@@ -206,20 +221,21 @@ fn slowLed(system: *System) !void {
     // HERE WE MAKE THE ARBITRARY CHOICE TO TALK TO THE GYRO DEVICE IN BIDI MODE
     const use_bidi_mode = true;
 
-    try system.debug("--- set SPI1 and gyro to BIDI mode? {}\r\n", .{use_bidi_mode});
+    try system.debug("--- set gyro and then SPI1 to BIDI mode? {}\r\n", .{use_bidi_mode});
     {
-        const desired_mode = @boolToInt(use_bidi_mode);
+        const desired_mode = @intFromBool(use_bidi_mode);
 
         try system.debug("setting gyro SIM={d}\r\n", .{desired_mode});
-        try gyro.writeRegister(0x23, (0x00 & 0xFE) | desired_mode);
+        try gyro.write_register(0x23, (0x00 & 0xFE) | desired_mode);
+        // ...and now we must start to talk to the gyro in the correct mode
         try system.debug("setting SPI1 BIDIMODE={d}\r\n", .{desired_mode});
         regs.SPI1.CR1.modify(.{ .BIDIMODE = desired_mode });
 
         try system.debug("BIDIMODE = {d}\r\n", .{regs.SPI1.CR1.read().BIDIMODE});
-        try system.debug("gyro SIM mode = {d}\r\n", .{(try gyro.readRegister(0x23)) & 0b1});
+        try system.debug("gyro SIM mode = {d}\r\n", .{(try gyro.read_register(0x23)) & 0b1});
     }
 
-    gyro_id = try gyro.readRegister(0x0F); // WHO_AM_I
+    gyro_id = try gyro.read_register(0x0F); // WHO_AM_I
     try system.debug("WHO_AM_I of gyroscope is {X:2}, should be D3.\r\n", .{gyro_id});
 
     if (gyro_id != 0xD3) return;
@@ -227,7 +243,7 @@ fn slowLed(system: *System) !void {
     // set CTRL_REG1 (0x20) to 100 Hz with cutoff 12.5 (.DR==0b00, .BW=0b00),
     // power on (.PD==0b1),
     // Z/Y/X all enabled (.Zen==0, .Yen==.Xen==1)
-    try gyro.writeRegister(0x20, 0b00_00_1_011);
+    try gyro.write_register(0x20, 0b00_00_1_011);
 
     var current_led: ?u3 = null; // led initially off
 
@@ -235,7 +251,7 @@ fn slowLed(system: *System) !void {
         // get gyroscope X / Y data:
         // read OUT_* registers: 4 registers starting with OUT_X_L (0x28)
         var out: [4]u8 = undefined;
-        try gyro.readRegisters(0x28, &out);
+        try gyro.read_registers(0x28, &out);
         const x: i16 = @as(i16, out[1]) << 8 | out[0];
         const y: i16 = @as(i16, out[3]) << 8 | out[2];
         if (false) {
@@ -285,14 +301,14 @@ fn slowLed(system: *System) !void {
 fn heavyLed(system: *System) !void {
     const leds = system.leds;
 
-    const i2c1 = try microzig.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
+    const i2c1 = try microzig.core.experimental.i2c.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
 
     // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
     // normal power mode (.LPen==1),
     // Y/X both enabled (.Zen==0, .Yen==.Xen==1)
-    try xl.writeRegister(0x20, 0b01010011);
+    try xl.write_register(0x20, 0b01010011);
 
     var current_led: ?u3 = null; // led initially off
 
@@ -300,7 +316,7 @@ fn heavyLed(system: *System) !void {
         // get accelerometer X / Y data:
         // read OUT_* registers: 4 registers starting with OUT_X_L (0x28)
         var out: [4]u8 = undefined;
-        try xl.readRegisters(0x28, &out);
+        try xl.read_registers(0x28, &out);
 
         const x: i16 = @as(i16, out[1]) << 8 | out[0];
         const y: i16 = @as(i16, out[3]) << 8 | out[2];
@@ -340,7 +356,8 @@ fn heavyLed(system: *System) !void {
 
 fn randomCompass(system: *System) void {
     const leds = system.leds;
-    var rng = std.rand.DefaultPrng.init(42).random();
+    var pqr = std.rand.DefaultPrng.init(42);
+    var rng = pqr.random();
 
     const D = 24 + 1 * 16;
 
@@ -369,7 +386,7 @@ fn randomCompass(system: *System) void {
 }
 
 fn distance(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
-    return std.math.min(b -% a, a -% b);
+    return @min(b -% a, a -% b);
 }
 
 fn twoBumpingLeds(system: *System) !void {
@@ -380,24 +397,25 @@ fn twoBumpingLeds(system: *System) !void {
     leds.add(j);
     leds.add(k);
 
-    const i2c1 = try microzig.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
+    const i2c1 = try microzig.core.experimental.i2c.I2CController(1, .{}).init(.{ .target_speed = 100_000 });
     // STM32F3DISCOVERY board LSM303AGR accelerometer (I2C address 0b0011001)
     const xl = i2c1.device(0b0011001);
     // read device ID (0x33 == 51) from "register" WHO_AM_I_A (0x0F)
-    const accelerometer_device_id = xl.readRegister(0x0F);
+    const accelerometer_device_id = xl.read_register(0x0F);
     try system.debug("I2C1 device 0b0011001 device ID: {any} == 51 == 0x33\r\n", .{accelerometer_device_id});
     {
         // set CTRL_REG1 (0x20) to 100 Hz (.ODR==0b0101),
         // normal power mode (.LPen==1),
         // Z/Y/X all enabled (.Zen==.Yen==.Xen==1)
-        var wt = try xl.startTransfer(.write);
+        var wt = try xl.start_transfer(.write);
         {
             defer wt.stop() catch {};
             try wt.writer().writeAll(&.{ 0x20, 0b01010111 });
         }
     }
 
-    var rng = std.rand.DefaultPrng.init(42).random();
+    var pqr = std.rand.DefaultPrng.init(42);
+    var rng = pqr.random();
     while (true) {
         if (rng.boolean()) {
             leds.remove(j);
@@ -419,7 +437,7 @@ fn twoBumpingLeds(system: *System) !void {
         // get accelerometer X / Y / Z data:
         // read OUT_* registers: 6 registers starting with OUT_X_L (0x28)
         var out: [6]u8 = undefined;
-        try xl.readRegisters(0x28, &out);
+        try xl.read_registers(0x28, &out);
         try system.debug("I2C1 device 0b0011001 output: {any}\r\n", .{out});
 
         const ms = rng.uintLessThan(u16, 400);
