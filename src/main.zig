@@ -223,12 +223,13 @@ fn slowLed(system: *System) !void {
     // HERE WE MAKE THE ARBITRARY CHOICE TO TALK TO THE GYRO DEVICE IN BIDI MODE
     const use_bidi_mode = true;
 
-    try system.debug("--- set SPI1 and gyro to BIDI mode? {}\r\n", .{use_bidi_mode});
+    try system.debug("--- set gyro and then SPI1 to BIDI mode? {}\r\n", .{use_bidi_mode});
     {
         const desired_mode = @intFromBool(use_bidi_mode);
 
         try system.debug("setting gyro SIM={d}\r\n", .{desired_mode});
         try gyro.write_register(0x23, (0x00 & 0xFE) | desired_mode);
+        // ...and now we must start to talk to the gyro in the correct mode
         try system.debug("setting SPI1 BIDIMODE={d}\r\n", .{desired_mode});
         regs.SPI1.CR1.modify(.{ .BIDIMODE = desired_mode });
 
