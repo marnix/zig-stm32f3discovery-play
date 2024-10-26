@@ -15,8 +15,8 @@ pub fn build(b: *std.Build) !void {
         .optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSmall }),
         .source_file = .{ .path = "src/main.zig" },
     });
+    std.debug.assert(firmware.mz == microzig); // ...just a sanity check
 
-    std.debug.assert(microzig == firmware.mz);
     const install_step = microzig.addInstallFirmware(b, firmware, .{ .format = .bin });
     b.getInstallStep().dependOn(&install_step.step);
 
