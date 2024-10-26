@@ -162,9 +162,18 @@ pub fn main() !void {
         .debug_writer = uart1.writer(),
     };
     try system.debug("\r\nMAIN START\r\n", .{});
+    try system.debug("tau={}.\r\n", .{comptime std.math.tau});
+    try system.debug("0={}.\r\n", .{comptime std.math.sin(std.math.tau)});
+    var x: f64 = std.math.tau;
+    try system.debug("tau={}.\r\n", .{x});
+    x = std.math.sin(x);
+    try system.debug("0={}.\r\n", .{x});
+    // try system.debug("1={}.\r\n", .{comptime std.math.cos(std.math.tau)});
+    // try system.debug("0={}.\r\n", .{comptime std.math.tan(std.math.tau)});
+    // try system.debug("+/-oo={}.\r\n", .{comptime std.math.tan(std.math.tau / 4.0)});
 
-    // try slowLed(&system);
-    try heavyLed(&system);
+    try slowLed(&system);
+    // try heavyLed(&system);
     // try twoBumpingLeds(&system);
     // randomCompass(&system);
 }
